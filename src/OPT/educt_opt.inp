@@ -1,0 +1,4 @@
+!XTB2  opt
+%pal nprocs 24 end
+%maxcore 2524
+*xyzfile 0 1 educt.xyz
