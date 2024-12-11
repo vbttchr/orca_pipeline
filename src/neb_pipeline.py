@@ -52,25 +52,19 @@ def check_job_status(job_id, interval=45, step=""):
                 return latest_status
         time.sleep(interval)
 
-
-             
 def make_folder(dir_name):
     path = os.path.join(os.getcwd(), dir_name)
     if os.path.exists(path):
-        print(f"Moving existing folder {path} to old_calc")
-        old_calc_path = os.path.join(os.getcwd(), "old_calc")
-        if not os.path.exists(old_calc_path):
-            os.makedirs(old_calc_path)
-        
-        target_path = os.path.join(old_calc_path, dir_name)
-        if os.path.exists(target_path):
-            print(f"Removing existing folder {target_path}")
-            shutil.rmtree(target_path)  # Remove the existing directory
-        
-        shutil.move(path, old_calc_path)
+        if os.path.isdir(path):
+            print(f"Removing existing folder {path}")
+            shutil.rmtree(path)  # Remove the existing directory
+        else:
+            print(f"Removing existing file {path}")
+            os.remove(path)  # Remove the existing file
     
     os.makedirs(path)
     print(f"Created folder {path}")
+             
 
 def submit_job(input_file, output_file, walltime="24"):
     try:
