@@ -258,10 +258,15 @@ def NEB_TS(charge=0, mult=1,  trial=0, Nimages=16, upper_limit=5, xtb=True,fast=
     guess_block=""
     if os.path.exists("guess.xyz"):
         guess_block=f" TS \"guess.xyz\" \n"
+    geom_block=""
+    if xtb:
+        nAtoms = int(subprocess.run("cat product.xyz | head -1 ",shell=True,stdout=subprocess.PIPE).stdout.decode().strip())
+        maxiter = nAtoms * 4        
 
+        geom_block =f"%geom\n Calc_Hess true\n Recalc_Hess 1\n MaxIter={maxiter} end"
         
 
-    neb_input = f"! {method} {solvent_formatted}   \n%pal nprocs {SLURM_PARAMS_OPT['nprocs']} end\n%maxcore {SLURM_PARAMS_OPT['maxcore']}\n%neb \n Product \"product.xyz\" \n NImages {images}  \n {guess_block} end\n*xyzfile {charge} {mult} educt.xyz\n"
+    neb_input = f"! {method} {solvent_formatted} {geom_block}   %pal nprocs {SLURM_PARAMS_OPT['nprocs']} end\n%maxcore {SLURM_PARAMS_OPT['maxcore']}\n%neb \n Product \"product.xyz\" \n NImages {images}  \n {guess_block} end\n*xyzfile {charge} {mult} educt.xyz\n"
     neb_input_name = "neb-fast-TS.inp" if fast else "neb-TS.inp"
     with open(neb_input_name, 'w') as f:
         f.write(neb_input)
@@ -283,13 +288,15 @@ def NEB_TS(charge=0, mult=1,  trial=0, Nimages=16, upper_limit=5, xtb=True,fast=
             return False
     else:
         print(f'{job_step} job failed, restarting...')
+        
+        print(f'Status of failed Job {status}, if COMPLETED the jobs has not converged')
         subprocess.run(f"scancel {job_id}", shell=True)
         time.sleep(30)
         if grep_output('ORCA TERMINATED NORMALLY', f'{neb_input_name.rsplit(".",1)[0]}.out'):
             
             if fast and not xtb:
                 print("Restarting as DFT NEB-TS run using DFT FAST-NEB-TS as guess")
-                if os.path.exists("neb-fast-TS"):
+                if os.path.exists("neb-fast-TS_NEB-HEI_converged.xyz"):
                     subprocess.run("cp neb-fast-TS_NEB-HEI_converged.xyz guess.xyz", shell=True)
                 fast=False
                 xtb=False
@@ -612,4 +619,5 @@ if __name__ == "__main__":
 
 
     main(charge=args.charge, mult=args.mult, solvent=args.solvent, Nimages=args.Nimages,  restart=args.restart,steps=args.steps)
+
 
