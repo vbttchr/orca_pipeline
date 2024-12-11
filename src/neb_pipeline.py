@@ -1,3 +1,4 @@
+import re
 import os
 import subprocess
 import time
@@ -193,8 +194,9 @@ def freq_job(struc_name="coord.xyz", charge=0, mult=1, trial=0, upper_limit=5, s
             print('Freq calculation completed successfully')
             if ts:
                 output= grep_output('**imaginary mode***', 'freq.out')
-                if output:
-                    imag_freq = float(output.split(" ")[4])
+                match = re.search(r'(-?\d+\.\d+)\s*cm\*\*-1', output)
+                if match:
+                    imag_freq = float(output.gropu(1))
 
                     if imag_freq < -50:
 
