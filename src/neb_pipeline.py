@@ -54,13 +54,18 @@ def check_job_status(job_id, interval=45, step=""):
 
              
 def make_folder(dir_name):
-    
     path = os.path.join(os.getcwd(), dir_name)
     if os.path.exists(path):
         print(f"Moving existing folder {path} to old_calc")
         old_calc_path = os.path.join(os.getcwd(), "old_calc")
         if not os.path.exists(old_calc_path):
             os.makedirs(old_calc_path)
+        
+        target_path = os.path.join(old_calc_path, dir_name)
+        if os.path.exists(target_path):
+            print(f"Removing existing folder {target_path}")
+            shutil.rmtree(target_path)  # Remove the existing directory
+        
         shutil.move(path, old_calc_path)
     
     os.makedirs(path)
@@ -263,10 +268,10 @@ def NEB_TS(charge=0, mult=1,  trial=0, Nimages=16, upper_limit=5, xtb=True,fast=
         nAtoms = int(subprocess.run("cat product.xyz | head -1 ",shell=True,stdout=subprocess.PIPE).stdout.decode().strip())
         maxiter = nAtoms * 4        
 
-        geom_block =f"%geom\n Calc_Hess true\n Recalc_Hess 1\n MaxIter={maxiter} end"
+        geom_block =f"%geom\n Calc_Hess true\n Recalc_Hess 1\n MaxIter={maxiter} end \n"
         
 
-    neb_input = f"! {method} {solvent_formatted} {geom_block}   %pal nprocs {SLURM_PARAMS_OPT['nprocs']} end\n%maxcore {SLURM_PARAMS_OPT['maxcore']}\n%neb \n Product \"product.xyz\" \n NImages {images}  \n {guess_block} end\n*xyzfile {charge} {mult} educt.xyz\n"
+    neb_input = f"! {method} {solvent_formatted} \n {geom_block}   %pal nprocs {SLURM_PARAMS_OPT['nprocs']} end\n%maxcore {SLURM_PARAMS_OPT['maxcore']}\n%neb \n Product \"product.xyz\" \n NImages {images}  \n {guess_block} end\n*xyzfile {charge} {mult} educt.xyz\n"
     neb_input_name = "neb-fast-TS.inp" if fast else "neb-TS.inp"
     with open(neb_input_name, 'w') as f:
         f.write(neb_input)
