@@ -25,6 +25,8 @@ SLURM_PARAMS_OPT = {
 
 def check_job_status(job_id, interval=45, step=""):
 
+    ## TODO implement checks, that the TS still has a significant mode. 
+
     start_time = time.time()
 
     counter = 0
@@ -264,7 +266,7 @@ def NEB_TS(charge=0, mult=1,  trial=0, Nimages=16, upper_limit=5, xtb=True,fast=
         nAtoms = int(subprocess.run("cat product.xyz | head -1 ",shell=True,stdout=subprocess.PIPE).stdout.decode().strip())
         maxiter = nAtoms * 4        
 
-        geom_block =f"%geom\n Calc_Hess true\n Recalc_Hess 1\n MaxIter={maxiter} end \n"
+        geom_block =f"%geom\n Calc_Hess true\n Recalc_Hess 10\n MaxIter={maxiter} end \n"  ### Crude optimization Hess calc at 10 for xtb to try to hold the negative mode but not to have a to long run
         
 
     neb_input = f"! {method} {solvent_formatted} \n {geom_block}   %pal nprocs {SLURM_PARAMS_OPT['nprocs']} end\n%maxcore {SLURM_PARAMS_OPT['maxcore']}\n%neb \n Product \"product.xyz\" \n NImages {images}  \n {guess_block} end\n*xyzfile {charge} {mult} educt.xyz\n"

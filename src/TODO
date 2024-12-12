@@ -1,0 +1,3 @@
+### Implement checks for TS opt that freq always needs to be below -50 
+
+## Update check_status function to give ts flag to check out put for significant negative modes 
