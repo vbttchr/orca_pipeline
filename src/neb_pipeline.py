@@ -6,14 +6,14 @@ import shutil
 import argparse
 import sys
 
-MAX_TRIALS = 5
+MAX_TRIALS = 3
 
-SLURM_PARAMS_FREQ = {
+SLURM_PARAMS_HIGH_MEM = {
     'nprocs': 24,
     'maxcore': 8024
 }
 
-SLURM_PARAMS_OPT = {
+SLURM_PARAMS_LOW_MEM = {
     'nprocs': 24,
     'maxcore': 2524
 }
@@ -112,8 +112,8 @@ def optimise_reactants(charge=0, mult=1, trial=0, upper_limit=5, solvent="", xtb
     print('Starting reactant optimisation')
 
     job_inputs = {
-        'educt_opt.inp': f"!{method} {solvent_formatted} opt\n%pal nprocs {SLURM_PARAMS_OPT['nprocs']} end\n%maxcore {SLURM_PARAMS_OPT['maxcore']}\n*xyzfile {charge} {mult} educt.xyz\n",
-        'product_opt.inp': f"!{method} {solvent_formatted} opt\n%pal nprocs {SLURM_PARAMS_OPT['nprocs']} end\n%maxcore {SLURM_PARAMS_OPT['maxcore']}\n*xyzfile {charge} {mult} product.xyz\n"
+        'educt_opt.inp': f"!{method} {solvent_formatted} opt\n%pal nprocs {SLURM_PARAMS_LOW_MEM['nprocs']} end\n%maxcore {SLURM_PARAMS_LOW_MEM['maxcore']}\n*xyzfile {charge} {mult} educt.xyz\n",
+        'product_opt.inp': f"!{method} {solvent_formatted} opt\n%pal nprocs {SLURM_PARAMS_LOW_MEM['nprocs']} end\n%maxcore {SLURM_PARAMS_LOW_MEM['maxcore']}\n*xyzfile {charge} {mult} product.xyz\n"
     }
 
     for filename, content in job_inputs.items():
@@ -158,7 +158,7 @@ def freq_job(struc_name="coord.xyz", charge=0, mult=1, trial=0, upper_limit=5, s
     method = "XTB2 numfreq tightscf" if xtb else "r2scan-3c freq tightscf"
     solvent_formatted = f"CPCM({solvent})" if solvent and not xtb else f"ALPB({solvent})" if solvent else ""
 
-    freq_input = f"! {method} {solvent_formatted}\n%pal nprocs {SLURM_PARAMS_FREQ['nprocs']} end\n%maxcore {SLURM_PARAMS_FREQ['maxcore']}\n*xyzfile {charge} {mult} {struc_name}\n"
+    freq_input = f"! {method} {solvent_formatted}\n%pal nprocs {SLURM_PARAMS_HIGH_MEM['nprocs']} end\n%maxcore {SLURM_PARAMS_HIGH_MEM['maxcore']}\n*xyzfile {charge} {mult} {struc_name}\n"
     with open('freq.inp', 'w') as f:
         f.write(freq_input)
 
@@ -198,9 +198,11 @@ def NEB_TS(charge=0, mult=1, trial=0, Nimages=16, upper_limit=5, xtb=True, fast=
             print("Reactant optimisation failed, aborting")
             return False
         switch = False
-
+    job_step = 'NEB-TS'
     trial += 1
     print(f"Trial {trial} for NEB-TS")
+
+    slurm_params=SLURM_PARAMS_HIGH_MEM
 
     if trial > upper_limit:
         print('Too many trials aborting')
@@ -224,12 +226,13 @@ def NEB_TS(charge=0, mult=1, trial=0, Nimages=16, upper_limit=5, xtb=True, fast=
         with open("product.xyz") as f:
             nAtoms = int(f.readline().strip())
         maxiter = nAtoms * 4
-        geom_block = f"%geom\n Calc_Hess true\n Recalc_Hess {FREQ_THRESHOLD}\n MaxIter={maxiter} end \n"
+        geom_block = f"%geom\n Calc_Hess true\n Recalc_Hess 10\n MaxIter={maxiter} end \n"
+        slurm_params=SLURM_PARAMS_LOW_MEM
 
     neb_input = (f"! {method} {solvent_formatted}\n"
                  f" {geom_block}"
-                 f" %pal nprocs {SLURM_PARAMS_OPT['nprocs']} end\n"
-                 f"%maxcore {SLURM_PARAMS_OPT['maxcore']}\n"
+                 f" %pal nprocs {slurm_params['nprocs']} end\n"
+                 f"%maxcore {slurm_params['maxcore']}\n"
                  f"%neb \n Product \"product.xyz\" \n NImages {Nimages}  \n"
                  f" {guess_block} end\n"
                  f"*xyzfile {charge} {mult} educt.xyz\n")
@@ -239,7 +242,7 @@ def NEB_TS(charge=0, mult=1, trial=0, Nimages=16, upper_limit=5, xtb=True, fast=
 
     print(f'Submitting {neb_input_name} job to Slurm')
     job_id = submit_job(neb_input_name, f"{job_step}_slurm.out", walltime="48")
-    status = check_job_status(job_id, step="NEB")
+    status = check_job_status(job_id, step="NEB-TS")
 
     if status == 'COMPLETED' and grep_output('HURRAY', f'{neb_input_name.rsplit(".", 1)[0]}.out'):
         print('NEB-TS completed successfully')
@@ -263,70 +266,118 @@ def NEB_TS(charge=0, mult=1, trial=0, Nimages=16, upper_limit=5, xtb=True, fast=
             os.chdir('..')
             return True
         else:
-            handle_failed_freq(charge, mult, Nimages, trial, upper_limit, xtb, fast, solvent)
+            if not handle_failed_imagfreq(charge, mult, Nimages, trial, upper_limit, xtb, fast, solvent):
+                return False
+            else:
+                print("Negative mode found in guess. Continuing with TS optimisation.")
+                run_subprocess("cp neb-TS_NEB-CI_converged.xyz neb_completed.xyz", shell=True)
+                os.chdir('..')
+                return True
+                ### uper limit is technicaly not needed here
+    elif grep_output('ORCA TERMINATED NORMALLY', f'{neb_input_name.rsplit(".", 1)[0]}.out'):
+        if not handle_unconverged_neb(charge, mult, Nimages, trial, upper_limit, xtb, fast, solvent, job_id):
+            return False
+        else:
+            print("R2SCAN-3c NEB-TS job did not converge, but freq job found negative frequency above guess. Fail might be due no Hess recalc. Continuing with TS optimisation.")
+            run_subprocess("cp neb-TS_NEB-CI_converged.xyz neb_completed.xyz", shell=True)
+            os.chdir('..')
+            return True
+            
     else:
-        handle_failed_neb(charge, mult, Nimages, trial, upper_limit, xtb, fast, solvent, neb_input_name)
+        print(f"NEB-TS {neb_input_name} failed, restarting if there are trials left")
+        print("Will be removed when segfaults are fixed")
+        return NEB_TS(charge, mult, trial, Nimages, upper_limit, xtb, fast, solvent, switch)
 
-    return False
+   
 
 
-def handle_failed_freq(charge, mult, Nimages, trial, upper_limit, xtb, fast, solvent):
+def handle_failed_imagfreq(charge, mult, Nimages, trial, upper_limit, xtb, fast, solvent):
     print("No significant negative frequency found")
     if not xtb and fast:
         print("FAST-NEB-TS with r2scan-3c did not find TS. Retrying with regular NEB-TS.")
-        run_subprocess("mv neb-fast-TS_NEB-HEI_converged.xyz guess.xyz", shell=True)
+        print("Using FAST-NEB-TS guess as TS guess for NEB-TS")
+        if os.path.exists("neb-fast-TS_NEB-HEI_converged.xyz"):
+
+            run_subprocess("mv neb-fast-TS_NEB-HEI_converged.xyz guess.xyz", shell=True)
+        else:
+            print("Could not find NEB-HEI file, start new NEB without guess")
         run_subprocess("rm pmix* *densities* freq.inp slurm* neb*im* *neb*.inp", shell=True)
-        return NEB_TS(charge, mult, Nimages=10, trial=trial, upper_limit=MAX_TRIALS, xtb=False, fast=False, solvent=solvent)
+        return NEB_TS(charge, mult, Nimages=8, trial=0, upper_limit=MAX_TRIALS, xtb=False, fast=False, solvent=solvent)
     elif not xtb and not fast:
         print("NEB-TS r2scan-3c did not find TS. Checking guess mode.")
-        imag_freq = freq_job(
-            struc_name=f'neb-TS_converged.xyz',
+        return freq_job(
+            struc_name=f'neb-TS_NEB-CI_converged.xyz',
             charge=charge,
             mult=mult,
             trial=0,
-            upper_limit=upper_limit,
+            upper_limit=MAX_TRIALS,
             solvent=solvent,
             xtb=xtb,
             ts=True
         )
-        if imag_freq:
-            print("Significant mode found in guess. Continuing with TS optimisation.")
-            run_subprocess("cp neb-TS_converged.xyz neb_completed.xyz", shell=True)
-            os.chdir('..')
-            return True
+
+    elif xtb and not fast:
+        print("NEB-TS XTB2 did not find TS. Retrying with FAST-NEB-TS with r2scan-3c.")
+        print("Using NEB-TS guess as TS guess for FAST-NEB-TS")
+        if os.path.exists("neb-TS_NEB-CI_converged.xyz"):
+            run_subprocess("mv neb-TS_NEB-CI_converged.xyz guess.xyz", shell=True)
+        else:
+            print("Could not find NEB-CI file, NEB will be started without guess")
+        run_subprocess("rm pmix* *densities* freq.inp slurm* neb*im* *neb*.inp", shell=True)
+        
+        return NEB_TS(charge, mult, Nimages=8, trial=1, upper_limit=MAX_TRIALS+1, xtb=True, fast=True, solvent=solvent, switch=True)
     elif xtb and fast:
         print("Retrying with regular NEB-TS and XTB.")
-        run_subprocess("mv neb-fast-TS_NEB-HEI_converged.xyz guess.xyz", shell=True)
+        print("Using FAST-NEB-TS guess as TS guess for NEB-TS")
+        if os.path.exists("neb-fast-TS_NEB-HEI_converged.xyz"):
+
+            run_subprocess("mv neb-fast-TS_NEB-HEI_converged.xyz guess.xyz", shell=True)
+        else:
+            print("NEB-HEI file is not present, start new NEB withouth guess")
         run_subprocess("rm pmix* *densities* freq.inp slurm* neb*im* *neb*.inp", shell=True)
-        return NEB_TS(charge, mult, trial=2, upper_limit=MAX_TRIALS, xtb=True, fast=False, solvent=solvent)
-    print("Failed to find TS with all methods.")
+        return NEB_TS(charge, mult, Nimages=24, trial=1, upper_limit=MAX_TRIALS+1, xtb=True, fast=False, solvent=solvent)
     return False
 
 
-def handle_failed_neb(charge, mult, Nimages, trial, upper_limit, xtb, fast, solvent, neb_input_name):
-    print(f'NEB job {neb_input_name} failed, restarting...')
-    run_subprocess(['scancel', neb_input_name])
-    time.sleep(30)
-    if grep_output('ORCA TERMINATED NORMALLY', f'{neb_input_name.rsplit(".", 1)[0]}.out'):
-        if fast and not xtb:
-            print("Restarting as DFT NEB-TS run using FAST-NEB-TS guess")
-            if os.path.exists("neb-fast-TS_NEB-HEI_converged.xyz"):
-                run_subprocess("cp neb-fast-TS_NEB-HEI_converged.xyz guess.xyz", shell=True)
-            return NEB_TS(charge, mult, Nimages=8, trial=1, upper_limit=MAX_TRIALS-2, xtb=False, fast=False, solvent=solvent, switch=True)
-        if fast and xtb:
-            print("Restarting as regular NEB-TS")
-            return NEB_TS(charge, mult, Nimages=Nimages, trial=trial, upper_limit=upper_limit, xtb=xtb, fast=False, solvent=solvent, switch=False)
-        if Nimages >= 32 and xtb:
-            print("Restarting as FAST-NEB-TS DFT run")
-            return NEB_TS(charge, mult, Nimages=12, trial=1, upper_limit=MAX_TRIALS, xtb=False, fast=True, solvent=solvent, switch=True)
+def handle_unconverged_neb(charge, mult, Nimages, trial, upper_limit, xtb, fast, solvent, job_id):
+    print(f'NEB-TS job did not converge')
+    run_subprocess(['scancel', job_id])
+    time.sleep(60)
+    
     run_subprocess("rm -rf *.gbw pmix* *densities* freq.inp slurm* neb*im* *neb*.inp", shell=True)
-    return NEB_TS(charge, mult, trial, Nimages=2*Nimages if xtb else Nimages+2, upper_limit=upper_limit, xtb=xtb, fast=fast, solvent=solvent)
-
+    if fast and not xtb:
+        print("Restarting as R2SCAN-3c NEB-TS run using FAST-NEB-TS guess")
+        if os.path.exists("neb-fast-TS_NEB-HEI_converged.xyz"):
+            run_subprocess("cp neb-fast-TS_NEB-HEI_converged.xyz guess.xyz", shell=True)
+        else:
+            print("Could not find NEB-HEI file, NEB will be started without guess")
+        return NEB_TS(charge, mult, Nimages=8, trial=1, upper_limit=MAX_TRIALS+1, xtb=False, fast=False, solvent=solvent, switch=False)
+    if fast and xtb:
+        print("Restarting as XTB2 NEB-TS")
+        return NEB_TS(charge, mult, Nimages=24, trial=1, upper_limit=MAX_TRIALS+1, xtb=xtb, fast=False, solvent=solvent, switch=False)
+    if not fast and  xtb:
+        print("Restarting as R2SCAN-3c FAST-NEB-TS")
+        return NEB_TS(charge, mult, Nimages=12, trial=0, upper_limit=MAX_TRIALS, xtb=xtb, fast=True, solvent=solvent, switch=True)
+    if not fast and not xtb:
+        print("R2SCAN-3c NEB-TS did not converge.")
+        print("This might be due to challenging PES near the TS. Checking guess mode.")
+        imag_freq = freq_job(
+            struc_name=f'neb-TS_NEB-CI_converged.xyz',
+            charge=charge,
+            mult=mult,
+            trial=0,
+            upper_limit=MAX_TRIALS,
+            solvent=solvent,
+            xtb=xtb,
+            ts=True
+        )
+        return imag_freq
+    return False
 
 def NEB_CI(charge=0, mult=1, trial=0, Nimages=8, upper_limit=5, xtb=True, solvent=""):
     trial += 1
     print(f"Trial {trial} for NEB-CI")
-
+    
     if trial > upper_limit:
         print('Too many trials aborting')
         return False
@@ -343,8 +394,8 @@ def NEB_CI(charge=0, mult=1, trial=0, Nimages=8, upper_limit=5, xtb=True, solven
         os.chdir('NEB')
 
     neb_input = (f"!NEB-CI {solvent_formatted} {method}\n"
-                 f"%pal nprocs {SLURM_PARAMS_OPT['nprocs']} end\n"
-                 f"%maxcore {SLURM_PARAMS_OPT['maxcore']}\n"
+                 f"%pal nprocs {SLURM_PARAMS_LOW_MEM['nprocs']} end\n"
+                 f"%maxcore {SLURM_PARAMS_LOW_MEM['maxcore']}\n"
                  f"%neb \n Product \"product.xyz\" \n NImages {images} {'Free_end true' if xtb else ''} \n end\n"
                  f"*xyzfile {charge} {mult} educt.xyz\n")
     with open('neb-CI.inp', 'w') as f:
@@ -379,6 +430,8 @@ def TS_opt(charge=0, mult=1, trial=0, upper_limit=5, solvent=""):
     solvent_formatted = f"CPCM({solvent})" if solvent else ""
     job_step = 'TS'
 
+
+
     if trial < 2:
         make_folder(job_step)
         run_subprocess("cp NEB/neb_completed.xyz TS/ts_guess.xyz", shell=True)
@@ -392,8 +445,8 @@ def TS_opt(charge=0, mult=1, trial=0, upper_limit=5, solvent=""):
 
     TS_input = (f"!r2scan-3c OptTS tightscf {solvent_formatted}\n"
                 f"%geom\ninhess read \ninhessname \"freq.hess\"\nCalc_Hess true\nrecalc_hess 15\nend\n"
-                f"%pal nprocs {SLURM_PARAMS_OPT['nprocs']} end\n"
-                f"%maxcore {SLURM_PARAMS_FREQ['maxcore']}\n"
+                f"%pal nprocs {SLURM_PARAMS_HIGH_MEM['nprocs']} end\n"
+                f"%maxcore {SLURM_PARAMS_HIGH_MEM['maxcore']}\n"
                 f"*xyzfile {charge} {mult} ts_guess.xyz\n")
     with open('TS_opt.inp', 'w') as f:
         f.write(TS_input)
@@ -439,8 +492,8 @@ def IRC_job(charge=0, mult=1, trial=0, upper_limit=5, solvent="", maxiter=70):
 
     IRC_input = (f"!r2scan-3c IRC tightscf {solvent_formatted}\n"
                  f"%irc\n  maxiter {maxiter} \nInitHess read \nHess_Filename \"freq.hess\"\nend \n"
-                 f"%pal nprocs {SLURM_PARAMS_OPT['nprocs']} end\n"
-                 f"%maxcore {SLURM_PARAMS_OPT['maxcore']}\n"
+                 f"%pal nprocs {SLURM_PARAMS_LOW_MEM['nprocs']} end\n"
+                 f"%maxcore {SLURM_PARAMS_LOW_MEM['maxcore']}\n"
                  f"*xyzfile {charge} {mult} TS_opt.xyz\n")
     with open('IRC.inp', 'w') as f:
         f.write(IRC_input)
@@ -492,12 +545,12 @@ def pipeline(step, charge=0, mult=1, solvent="", Nimages=16):
     steps_mapping = {
         "OPT_XTB": lambda: optimise_reactants(charge, mult, trial=0, upper_limit=MAX_TRIALS, solvent=solvent),
         "NEB_CI_XTB": lambda: NEB_CI(charge, mult, trial=0, Nimages=Nimages, upper_limit=MAX_TRIALS, xtb=True, solvent=solvent),
-        "NEB_CI_DFT": lambda: NEB_CI(charge, mult, trial=0, Nimages=Nimages, upper_limit=MAX_TRIALS-2, xtb=False, solvent=solvent),
+        "NEB_CI_DFT": lambda: NEB_CI(charge, mult, trial=0, Nimages=Nimages, upper_limit=MAX_TRIALS, xtb=False, solvent=solvent),
         "FAST_NEB-TS_XTB": lambda: NEB_TS(charge, mult, trial=0, Nimages=Nimages, upper_limit=MAX_TRIALS, xtb=True, fast=True, solvent=solvent),
-        "FAST_NEB-TS_DFT": lambda: NEB_TS(charge, mult, trial=0, Nimages=Nimages, upper_limit=MAX_TRIALS-2, xtb=False, fast=True, solvent=solvent),
+        "FAST_NEB-TS_DFT": lambda: NEB_TS(charge, mult, trial=0, Nimages=Nimages, upper_limit=MAX_TRIALS, xtb=False, fast=True, solvent=solvent),
         "NEB-TS_XTB": lambda: NEB_TS(charge, mult, trial=0, Nimages=Nimages, upper_limit=MAX_TRIALS, xtb=True, fast=False, solvent=solvent),
-        "NEB-TS_DFT": lambda: NEB_TS(charge, mult, trial=0, Nimages=Nimages, upper_limit=MAX_TRIALS-2, xtb=False, fast=False, solvent=solvent),
-        "TS": lambda: TS_opt(charge, mult, trial=0, upper_limit=MAX_TRIALS-2, solvent=solvent),
+        "NEB-TS_DFT": lambda: NEB_TS(charge, mult, trial=0, Nimages=Nimages, upper_limit=MAX_TRIALS, xtb=False, fast=False, solvent=solvent),
+        "TS": lambda: TS_opt(charge, mult, trial=0, upper_limit=MAX_TRIALS, solvent=solvent),
         "IRC": lambda: IRC_job(charge, mult, trial=0, upper_limit=MAX_TRIALS, solvent=solvent)
     }
 
@@ -521,7 +574,7 @@ def usage():
     print("--restart: Restart from previous calculations")
 
 
-def main(charge=0, mult=1, solvent="", Nimages=16, restart=False, steps=["OPT_XTB", "FAST_NEB-TS_XTB", "TS", "IRC"]):
+def main(charge=0, mult=1, solvent="", Nimages=32, restart=False, steps=["OPT_XTB", "NEB-TS_XTB", "TS", "IRC"]):
     setting_file_name = "settings_neb_pipeline.txt"
 
     if restart:
@@ -574,7 +627,7 @@ if __name__ == "__main__":
     parser.add_argument("--solvent", "-s", type=str, default="", help="Solvent model to use")
     parser.add_argument("--Nimages", "-i", type=int, default=8, help="Number of images for NEB")
     parser.add_argument("--restart", type=str2bool, default=False, help="Restart from previous calculations")
-    parser.add_argument("--steps", type=parse_steps, default=["OPT_XTB", "FAST_NEB-TS_XTB", "TS", "IRC"], help="Steps to run in the pipeline, comma separated")
+    parser.add_argument("--steps", type=parse_steps, default=["OPT_XTB", "NEB-TS_XTB", "TS", "IRC"], help="Steps to run in the pipeline, comma separated")
 
     args = parser.parse_args()
 
@@ -597,3 +650,4 @@ if __name__ == "__main__":
         restart=args.restart,
         steps=args.steps
     )
+
