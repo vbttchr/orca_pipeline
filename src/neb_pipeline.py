@@ -1,3 +1,10 @@
+
+#######TODO
+"""
+Incoporate polany for quick TS guess aka incopoarte workflow form master thesis.
+
+"""
+
 import re
 import os
 import subprocess
@@ -35,8 +42,11 @@ def run_subprocess(command, shell=False, capture_output=True, check=True,exit_on
         )
         return result
     except subprocess.CalledProcessError as e:
-        print(f"Command '{' '.join(command)}' failed with error: {e.stderr}")
-        sys.exit(1)
+        if exit_on_error:
+            print(f"Command '{' '.join(command)}' failed with error: {e.stderr}")
+            sys.exit(1)
+        else:
+            return False
 
 
 def check_job_status(job_id, interval=45, step=""):
@@ -302,7 +312,7 @@ def handle_failed_imagfreq(charge, mult, Nimages, trial, upper_limit, xtb, fast,
         else:
             print("Could not find NEB-HEI file, start new NEB without guess")
         run_subprocess("rm pmix* *densities* freq.inp slurm* neb*im* *neb*.inp", shell=True,exit_on_error=False)
-        return NEB_TS(charge, mult, Nimages=8, trial=0, upper_limit=MAX_TRIALS, xtb=False, fast=False, solvent=solvent)
+        return NEB_TS(charge, mult, Nimages=8, trial=1, upper_limit=MAX_TRIALS+1, xtb=False, fast=False, solvent=solvent)
     elif not xtb and not fast:
         print("NEB-TS r2scan-3c did not find TS. Checking guess mode.")
         return freq_job(
@@ -325,7 +335,7 @@ def handle_failed_imagfreq(charge, mult, Nimages, trial, upper_limit, xtb, fast,
             print("Could not find NEB-CI file, NEB will be started without guess")
         run_subprocess("rm pmix* *densities* freq.inp slurm* neb*im* *neb*.inp", shell=True,exit_on_error=False)
         
-        return NEB_TS(charge, mult, Nimages=8, trial=1, upper_limit=MAX_TRIALS+1, xtb=True, fast=True, solvent=solvent, switch=True)
+        return NEB_TS(charge, mult, Nimages=8, trial=0, upper_limit=MAX_TRIALS, xtb=True, fast=True, solvent=solvent, switch=True)
     elif xtb and fast:
         print("Retrying with regular NEB-TS and XTB.")
         print("Using FAST-NEB-TS guess as TS guess for NEB-TS")
@@ -439,7 +449,7 @@ def TS_opt(charge=0, mult=1, trial=0, upper_limit=5, solvent=""):
 
     print('Starting TS optimisation')
 
-    if not freq_job(struc_name="ts_guess.xyz", charge=charge, mult=mult, trial=0, upper_limit=upper_limit, solvent=solvent, ts=True):
+    if not freq_job(struc_name="ts_guess.xyz", charge=charge, mult=mult, trial=0,xtb=False, upper_limit=upper_limit, solvent=solvent, ts=True):
         print('Frequency job failed, aborting TS optimisation')
         return False
 
@@ -650,4 +660,5 @@ if __name__ == "__main__":
         restart=args.restart,
         steps=args.steps
     )
+
 
