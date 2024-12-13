@@ -24,7 +24,7 @@ RETRY_DELAY = 60
 FREQ_THRESHOLD = -50
 
 
-def run_subprocess(command, shell=False, capture_output=True, check=True):
+def run_subprocess(command, shell=False, capture_output=True, check=True,exit_on_error=True):
     try:
         result = subprocess.run(
             command,
@@ -90,7 +90,7 @@ def submit_job(input_file, output_file, walltime="24"):
 
 
 def grep_output(pattern, file):
-    result = run_subprocess(f"grep '{pattern}' {file}", shell=True, capture_output=True, check=False)
+    result = run_subprocess(f"grep '{pattern}' {file}", shell=True, capture_output=True, check=False,exit_on_error=False)
     return result.stdout.strip()
 
 
@@ -136,9 +136,9 @@ def optimise_reactants(charge=0, mult=1, trial=0, upper_limit=5, solvent="", xtb
 
     print('One of the optimisation jobs failed, restarting both')
     for job_id in job_ids:
-        run_subprocess(['scancel', job_id])
+        run_subprocess(['scancel', job_id],exit_on_error=False) ## This step is for safety, 
     time.sleep(RETRY_DELAY)
-    run_subprocess("rm -rf *.gbw pmix* *densities* freq.inp slurm* educt_opt.inp product_opt.inp", shell=True)
+    run_subprocess("rm -rf *.gbw pmix* *densities* freq.inp slurm* educt_opt.inp product_opt.inp", shell=True,exit_on_error=False)
 
     for xyz in ['educt_opt.xyz', 'product_opt.xyz']:
         if os.path.exists(xyz):
@@ -185,8 +185,8 @@ def freq_job(struc_name="coord.xyz", charge=0, mult=1, trial=0, upper_limit=5, s
             return True
 
     print('Frequency job failed, restarting...')
-    run_subprocess(['scancel', job_id_freq])
-    run_subprocess("rm -rf *.gbw pmix* *densities* freq.inp slurm*", shell=True)
+    run_subprocess(['scancel', job_id_freq],exit_on_error=False)
+    run_subprocess("rm -rf *.gbw pmix* *densities* freq.inp slurm*", shell=True,exit_on_error=False)
     return freq_job(struc_name, charge, mult, trial, upper_limit, solvent, ts)
 
 
@@ -301,7 +301,7 @@ def handle_failed_imagfreq(charge, mult, Nimages, trial, upper_limit, xtb, fast,
             run_subprocess("mv neb-fast-TS_NEB-HEI_converged.xyz guess.xyz", shell=True)
         else:
             print("Could not find NEB-HEI file, start new NEB without guess")
-        run_subprocess("rm pmix* *densities* freq.inp slurm* neb*im* *neb*.inp", shell=True)
+        run_subprocess("rm pmix* *densities* freq.inp slurm* neb*im* *neb*.inp", shell=True,exit_on_error=False)
         return NEB_TS(charge, mult, Nimages=8, trial=0, upper_limit=MAX_TRIALS, xtb=False, fast=False, solvent=solvent)
     elif not xtb and not fast:
         print("NEB-TS r2scan-3c did not find TS. Checking guess mode.")
@@ -323,7 +323,7 @@ def handle_failed_imagfreq(charge, mult, Nimages, trial, upper_limit, xtb, fast,
             run_subprocess("mv neb-TS_NEB-CI_converged.xyz guess.xyz", shell=True)
         else:
             print("Could not find NEB-CI file, NEB will be started without guess")
-        run_subprocess("rm pmix* *densities* freq.inp slurm* neb*im* *neb*.inp", shell=True)
+        run_subprocess("rm pmix* *densities* freq.inp slurm* neb*im* *neb*.inp", shell=True,exit_on_error=False)
         
         return NEB_TS(charge, mult, Nimages=8, trial=1, upper_limit=MAX_TRIALS+1, xtb=True, fast=True, solvent=solvent, switch=True)
     elif xtb and fast:
@@ -334,17 +334,17 @@ def handle_failed_imagfreq(charge, mult, Nimages, trial, upper_limit, xtb, fast,
             run_subprocess("mv neb-fast-TS_NEB-HEI_converged.xyz guess.xyz", shell=True)
         else:
             print("NEB-HEI file is not present, start new NEB withouth guess")
-        run_subprocess("rm pmix* *densities* freq.inp slurm* neb*im* *neb*.inp", shell=True)
+        run_subprocess("rm pmix* *densities* freq.inp slurm* neb*im* *neb*.inp", shell=True,exit_on_error=False)
         return NEB_TS(charge, mult, Nimages=24, trial=1, upper_limit=MAX_TRIALS+1, xtb=True, fast=False, solvent=solvent)
     return False
 
 
 def handle_unconverged_neb(charge, mult, Nimages, trial, upper_limit, xtb, fast, solvent, job_id):
     print(f'NEB-TS job did not converge')
-    run_subprocess(['scancel', job_id])
+    run_subprocess(['scancel', job_id],exit_on_error=False)
     time.sleep(60)
     
-    run_subprocess("rm -rf *.gbw pmix* *densities* freq.inp slurm* neb*im* *neb*.inp", shell=True)
+    run_subprocess("rm -rf *.gbw pmix* *densities* freq.inp slurm* neb*im* *neb*.inp", shell=True,exit_on_error=False)
     if fast and not xtb:
         print("Restarting as R2SCAN-3c NEB-TS run using FAST-NEB-TS guess")
         if os.path.exists("neb-fast-TS_NEB-HEI_converged.xyz"):
@@ -461,9 +461,9 @@ def TS_opt(charge=0, mult=1, trial=0, upper_limit=5, solvent=""):
         return True
 
     print('TS optimisation job failed, restarting...')
-    run_subprocess(['scancel', job_id_TS])
+    run_subprocess(['scancel', job_id_TS],exit_on_error=False)
     time.sleep(RETRY_DELAY)
-    run_subprocess("rm -rf *.gbw pmix* *densities* freq.inp slurm* *.hess", shell=True)
+    run_subprocess("rm -rf *.gbw pmix* *densities* freq.inp slurm* *.hess", shell=True,exit_on_error=False)
     if os.path.exists('TS_opt.xyz'):
         os.rename('TS_opt.xyz', 'ts_guess.xyz')
 
@@ -508,7 +508,7 @@ def IRC_job(charge=0, mult=1, trial=0, upper_limit=5, solvent="", maxiter=70):
         return True
 
     print('IRC job failed, restarting...')
-    run_subprocess(['scancel', job_id_IRC])
+    run_subprocess(['scancel', job_id_IRC],exit_on_error=False)
     if 'ORCA TERMINATED NORMALLY' in grep_output('ORCA TERMINATED NORMALLY', 'IRC.out'):
         print("ORCA terminated normally, possibly due to non-convergence.")
         if maxiter < 100:
@@ -518,7 +518,7 @@ def IRC_job(charge=0, mult=1, trial=0, upper_limit=5, solvent="", maxiter=70):
             return False
 
     time.sleep(RETRY_DELAY)
-    run_subprocess("rm -rf *.gbw pmix* *densities* IRC.inp slurm*", shell=True)
+    run_subprocess("rm -rf *.gbw pmix* *densities* IRC.inp slurm*", shell=True,exit_on_error=False)
     return IRC_job(charge, mult, trial, upper_limit, solvent, maxiter)
 
 
