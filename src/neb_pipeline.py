@@ -1,10 +1,3 @@
-
-#######TODO
-"""
-Incoporate polany for quick TS guess aka incopoarte workflow form master thesis.
-
-"""
-
 import re
 import os
 import subprocess
@@ -220,8 +213,8 @@ def NEB_TS(charge=0, mult=1, trial=0, Nimages=16, upper_limit=5, xtb=True, fast=
 
     solvent_formatted = f"CPCM({solvent})" if solvent and not xtb else f"ALPB({solvent})" if solvent else ""
     method = "FAST-NEB-TS XTB2 tightscf" if fast and xtb else \
-             "FAST-NEB-TS r2scan-3c tightscf" if fast else \
-             "NEB-TS XTB2 tightscf" if xtb else \
+             "FAST-NEB-TS r2scan-3c tightscf" if fast and not xtb else \
+             "NEB-TS XTB2 tightscf" if xtb and not fast else \
              "NEB-TS r2scan-3c tightscf"
 
     if trial < 2:
@@ -335,7 +328,7 @@ def handle_failed_imagfreq(charge, mult, Nimages, trial, upper_limit, xtb, fast,
             print("Could not find NEB-CI file, NEB will be started without guess")
         run_subprocess("rm pmix* *densities* freq.inp slurm* neb*im* *neb*.inp", shell=True,exit_on_error=False)
         
-        return NEB_TS(charge, mult, Nimages=8, trial=0, upper_limit=MAX_TRIALS, xtb=True, fast=True, solvent=solvent, switch=True)
+        return NEB_TS(charge, mult, Nimages=12, trial=0, upper_limit=MAX_TRIALS, xtb=False, fast=True, solvent=solvent, switch=True)
     elif xtb and fast:
         print("Retrying with regular NEB-TS and XTB.")
         print("Using FAST-NEB-TS guess as TS guess for NEB-TS")
@@ -364,10 +357,10 @@ def handle_unconverged_neb(charge, mult, Nimages, trial, upper_limit, xtb, fast,
         return NEB_TS(charge, mult, Nimages=8, trial=1, upper_limit=MAX_TRIALS+1, xtb=False, fast=False, solvent=solvent, switch=False)
     if fast and xtb:
         print("Restarting as XTB2 NEB-TS")
-        return NEB_TS(charge, mult, Nimages=24, trial=1, upper_limit=MAX_TRIALS+1, xtb=xtb, fast=False, solvent=solvent, switch=False)
+        return NEB_TS(charge, mult, Nimages=24, trial=1, upper_limit=MAX_TRIALS+1, xtb=True, fast=False, solvent=solvent, switch=False)
     if not fast and  xtb:
         print("Restarting as R2SCAN-3c FAST-NEB-TS")
-        return NEB_TS(charge, mult, Nimages=12, trial=0, upper_limit=MAX_TRIALS, xtb=xtb, fast=True, solvent=solvent, switch=True)
+        return NEB_TS(charge, mult, Nimages=12, trial=0, upper_limit=MAX_TRIALS, xtb=False, fast=True, solvent=solvent, switch=True)
     if not fast and not xtb:
         print("R2SCAN-3c NEB-TS did not converge.")
         print("This might be due to challenging PES near the TS. Checking guess mode.")
@@ -660,5 +653,6 @@ if __name__ == "__main__":
         restart=args.restart,
         steps=args.steps
     )
+
 
 
