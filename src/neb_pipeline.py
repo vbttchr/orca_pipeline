@@ -5,12 +5,13 @@ import time
 import shutil
 import argparse
 import sys
+import concurrent.futures
 
-MAX_TRIALS = 3
+MAX_TRIALS = 5 
 
 SLURM_PARAMS_HIGH_MEM = {
-    'nprocs': 24,
-    'maxcore': 8024
+    'nprocs': 16,
+    'maxcore': 12000
 }
 
 SLURM_PARAMS_LOW_MEM = {
@@ -24,16 +25,20 @@ RETRY_DELAY = 60
 FREQ_THRESHOLD = -50
 
 
-def run_subprocess(command, shell=False, capture_output=True, check=True,exit_on_error=True):
+def run_subprocess(command, shell=False, capture_output=True, check=True, exit_on_error=True, timeout=60):
     try:
         result = subprocess.run(
             command,
             shell=shell,
             capture_output=capture_output,
             text=True,
-            check=check
+            check=check,
+            timeout=timeout
         )
         return result
+    except subprocess.TimeoutExpired:
+        print(f"Command '{' '.join(command)}' timed out after {timeout} seconds.")
+        return False
     except subprocess.CalledProcessError as e:
         if exit_on_error:
             print(f"Command '{' '.join(command)}' failed with error: {e.stderr}")
@@ -42,29 +47,36 @@ def run_subprocess(command, shell=False, capture_output=True, check=True,exit_on
             return False
 
 
-def check_job_status(job_id, interval=45, step=""):
-    start_time = time.time()
+
+def check_job_status(job_id, interval=45, step="", timeout=60):
+    
     counter = 0
     while True:
-        print(f'Checking job {job_id} status {step}')
-        squeue = run_subprocess(['squeue', '-j', job_id, '-h'])
-        if squeue.stdout.strip():
+        time.sleep(interval)
+        print(f'Checking job {job_id} status {step} ')
+        squeue = run_subprocess(['squeue', '-j', job_id, '-h'], shell=False, exit_on_error=False, timeout=timeout)
+        if squeue and squeue.stdout.strip():
             if counter % 10 == 0:
                 print(f'Job {job_id} is still in the queue.')
             counter += 1
         else:
-            sacct = run_subprocess(['sacct', '-j', job_id, '--format=State', '--noheader'])
-            if sacct.stderr.strip():
-                print(f"Error from sacct: {sacct.stderr.strip()}")
-                return "UNKNOWN"
-            statuses = sacct.stdout.strip().split('\n')
-            latest_status = statuses[-1].strip()
-            print(f'Latest status for job {job_id}: {latest_status}')
-            if latest_status in CHECK_STATES:
-                end_time = time.time()
-                print(f"Job {job_id} finished in {end_time - start_time} seconds")
-                return latest_status
-        time.sleep(interval)
+            sacct = run_subprocess(['sacct', '-j', job_id, '--format=State', '--noheader'], shell=False, exit_on_error=False, timeout=timeout)
+            if sacct and sacct.stdout.strip():
+                statuses = sacct.stdout.strip().split('\n')
+                latest_status = statuses[-1].strip()
+                print(f'Latest status for job {job_id}: {latest_status}')
+                if latest_status in CHECK_STATES:
+                    return latest_status
+                else:
+                    print(f'Job {job_id} ended with status: {latest_status}')
+                    return latest_status
+            else:
+                if sacct and sacct.stderr.strip():
+                    print(f"Error from sacct: {sacct.stderr.strip()}")
+                    print(f'Job {job_id} status could not be determined.')
+                    return 'UNKNOWN'
+                
+
 
 
 def make_folder(dir_name):
@@ -126,9 +138,20 @@ def optimise_reactants(charge=0, mult=1, trial=0, upper_limit=5, solvent="", xtb
     print('Submitting educt and product jobs to Slurm')
     job_ids = [submit_job(inp, f"{inp.split('.')[0]}_slurm.out") for inp in job_inputs.keys()]
 
-    status_educt, status_product = [check_job_status(job_id, step=step) for job_id, step in zip(job_ids, ['educt', 'product'])]
+    
 
-    print(f"Job statuses - Educt: {status_educt}, Product: {status_product}")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        future_educt = executor.submit(check_job_status, job_ids[0], step='educt')
+        future_product = executor.submit(check_job_status, job_ids[1], step='product')
+
+        status_educt = future_educt.result()
+        status_product = future_product.result()
+
+    print(f'Educt Status: {status_educt}')
+    print(f'Product Status: {status_product}')
+
+
+    
 
     if status_educt == 'COMPLETED' and status_product == 'COMPLETED':
         educt_success = 'HURRAY' in grep_output('HURRAY', 'educt_opt.out')
@@ -154,12 +177,14 @@ def freq_job(struc_name="coord.xyz", charge=0, mult=1, trial=0, upper_limit=5, s
     trial += 1
     print(f"Trial {trial} for frequency job")
 
+
+
     if trial > upper_limit:
         print('Too many trials aborting')
         return False
 
-    method = "XTB2 numfreq tightscf" if xtb else "r2scan-3c freq tightscf"
-    solvent_formatted = f"CPCM({solvent})" if solvent and not xtb else f"ALPB({solvent})" if solvent else ""
+    method =  "r2scan-3c freq tightscf"
+    solvent_formatted = f"CPCM({solvent})"   if solvent else ""
 
     freq_input = f"! {method} {solvent_formatted}\n%pal nprocs {SLURM_PARAMS_HIGH_MEM['nprocs']} end\n%maxcore {SLURM_PARAMS_HIGH_MEM['maxcore']}\n*xyzfile {charge} {mult} {struc_name}\n"
     with open('freq.inp', 'w') as f:
@@ -171,6 +196,7 @@ def freq_job(struc_name="coord.xyz", charge=0, mult=1, trial=0, upper_limit=5, s
 
     if status_freq == 'COMPLETED':
         if grep_output('VIBRATIONAL FREQUENCIES', 'freq.out'):
+
             print('Frequency calculation completed successfully')
             if ts:
                 output = grep_output('**imaginary mode***', 'freq.out')
@@ -195,6 +221,7 @@ def freq_job(struc_name="coord.xyz", charge=0, mult=1, trial=0, upper_limit=5, s
 
 def NEB_TS(charge=0, mult=1, trial=0, Nimages=16, upper_limit=5, xtb=True, fast=True, solvent="", switch=False):
     if switch:
+        trial = 0 ## Reset trial counter if switching from XTB to DFT
         os.chdir('..')
         print("Switching to DFT run and optimizing reactants")
         if not optimise_reactants(charge, mult, trial=0, upper_limit=MAX_TRIALS, solvent=solvent, xtb=False):
@@ -205,7 +232,7 @@ def NEB_TS(charge=0, mult=1, trial=0, Nimages=16, upper_limit=5, xtb=True, fast=
     trial += 1
     print(f"Trial {trial} for NEB-TS")
 
-    slurm_params=SLURM_PARAMS_HIGH_MEM
+    slurm_params=SLURM_PARAMS_LOW_MEM
 
     if trial > upper_limit:
         print('Too many trials aborting')
@@ -229,7 +256,7 @@ def NEB_TS(charge=0, mult=1, trial=0, Nimages=16, upper_limit=5, xtb=True, fast=
         with open("product.xyz") as f:
             nAtoms = int(f.readline().strip())
         maxiter = nAtoms * 4
-        geom_block = f"%geom\n Calc_Hess true\n Recalc_Hess 10\n MaxIter={maxiter} end \n"
+        geom_block = f"%geom\n Calc_Hess true\n Recalc_Hess 1\n MaxIter={maxiter} end \n"
         slurm_params=SLURM_PARAMS_LOW_MEM
 
     neb_input = (f"! {method} {solvent_formatted}\n"
@@ -249,6 +276,7 @@ def NEB_TS(charge=0, mult=1, trial=0, Nimages=16, upper_limit=5, xtb=True, fast=
 
     if status == 'COMPLETED' and grep_output('HURRAY', f'{neb_input_name.rsplit(".", 1)[0]}.out'):
         print('NEB-TS completed successfully')
+
         imag_freq = freq_job(
             struc_name=f'{neb_input_name.rsplit(".", 1)[0]}_NEB-TS_converged.xyz',
             charge=charge,
@@ -262,31 +290,59 @@ def NEB_TS(charge=0, mult=1, trial=0, Nimages=16, upper_limit=5, xtb=True, fast=
 
         if imag_freq:
             print("Negative mode below threshold found, continuing")
+            time.sleep(60)
             run_subprocess(
-                f"cp {neb_input_name.rsplit('.', 1)[0]}_NEB-TS_converged.xyz neb_completed.xyz",
-                shell=True
-            )
+                f"cp {neb_input_name.rsplit('.', 1)[0]}_NEB-TS_converged.xyz neb_completed.xyz", shell=True )
             os.chdir('..')
             return True
         else:
             if not handle_failed_imagfreq(charge, mult, Nimages, trial, upper_limit, xtb, fast, solvent):
+                os.chdir('..')
                 return False
             else:
                 print("Negative mode found in guess. Continuing with TS optimisation.")
+                time.sleep(60)
                 run_subprocess("cp neb-TS_NEB-CI_converged.xyz neb_completed.xyz", shell=True)
                 os.chdir('..')
                 return True
                 ### uper limit is technicaly not needed here
     elif grep_output('ORCA TERMINATED NORMALLY', f'{neb_input_name.rsplit(".", 1)[0]}.out'):
         if not handle_unconverged_neb(charge, mult, Nimages, trial, upper_limit, xtb, fast, solvent, job_id):
+            os.chdir('..')
             return False
         else:
             print("R2SCAN-3c NEB-TS job did not converge, but freq job found negative frequency above guess. Fail might be due no Hess recalc. Continuing with TS optimisation.")
+            time.sleep(60)
             run_subprocess("cp neb-TS_NEB-CI_converged.xyz neb_completed.xyz", shell=True)
             os.chdir('..')
             return True
             
     else:
+        if grep_output("TS OPTIMIZATION", f'{neb_input_name.rsplit(".", 1)[0]}.out'):
+            print("NEB-TS started to optimized a TS guess but aborted during the run")
+            print("Check wheter last struct has significant negative frequency")
+            run_subprocess(["scancel",job_id],exit_on_error=False)
+            print("Wait for a minut to wait for the files from the node") 
+            time.sleep(60)
+            struc_name=f'{neb_input_name.rsplit(".", 1)[0]}.xyz'
+
+            imag_freq = freq_job(
+                struc_name=struc_name,
+                charge=charge,
+                mult=mult,
+                trial=0,
+                upper_limit=upper_limit,
+                solvent=solvent,
+                xtb=xtb,
+                ts=True
+            )
+            if imag_freq:
+                print("Negative mode below threshold found, Continuing with TS opt")
+                time.sleep(60)
+                run_subprocess(["cp",struc_name,"neb_completed.xyz"],shell=True)
+                os.chdir('..')
+                return True
+
         print(f"NEB-TS {neb_input_name} failed, restarting if there are trials left")
         print("Will be removed when segfaults are fixed")
         return NEB_TS(charge, mult, trial, Nimages, upper_limit, xtb, fast, solvent, switch)
@@ -547,12 +603,17 @@ def restart_pipeline():
 def pipeline(step, charge=0, mult=1, solvent="", Nimages=16):
     steps_mapping = {
         "OPT_XTB": lambda: optimise_reactants(charge, mult, trial=0, upper_limit=MAX_TRIALS, solvent=solvent),
+        "OPT_DFT": lambda: optimise_reactants(charge, mult, trial=0, upper_limit=MAX_TRIALS, solvent=solvent,xtb=False),
+
         "NEB_CI_XTB": lambda: NEB_CI(charge, mult, trial=0, Nimages=Nimages, upper_limit=MAX_TRIALS, xtb=True, solvent=solvent),
         "NEB_CI_DFT": lambda: NEB_CI(charge, mult, trial=0, Nimages=Nimages, upper_limit=MAX_TRIALS, xtb=False, solvent=solvent),
+
         "FAST_NEB-TS_XTB": lambda: NEB_TS(charge, mult, trial=0, Nimages=Nimages, upper_limit=MAX_TRIALS, xtb=True, fast=True, solvent=solvent),
         "FAST_NEB-TS_DFT": lambda: NEB_TS(charge, mult, trial=0, Nimages=Nimages, upper_limit=MAX_TRIALS, xtb=False, fast=True, solvent=solvent),
+
         "NEB-TS_XTB": lambda: NEB_TS(charge, mult, trial=0, Nimages=Nimages, upper_limit=MAX_TRIALS, xtb=True, fast=False, solvent=solvent),
         "NEB-TS_DFT": lambda: NEB_TS(charge, mult, trial=0, Nimages=Nimages, upper_limit=MAX_TRIALS, xtb=False, fast=False, solvent=solvent),
+
         "TS": lambda: TS_opt(charge, mult, trial=0, upper_limit=MAX_TRIALS, solvent=solvent),
         "IRC": lambda: IRC_job(charge, mult, trial=0, upper_limit=MAX_TRIALS, solvent=solvent)
     }
@@ -580,6 +641,8 @@ def usage():
 def main(charge=0, mult=1, solvent="", Nimages=32, restart=False, steps=["OPT_XTB", "NEB-TS_XTB", "TS", "IRC"]):
     setting_file_name = "settings_neb_pipeline.txt"
 
+    home_dir=os.getcwd()
+
     if restart:
         step_to_restart, charge, mult, solvent, Nimages, xtb = restart_pipeline()
         steps = steps[steps.index(step_to_restart):]
@@ -589,6 +652,10 @@ def main(charge=0, mult=1, solvent="", Nimages=32, restart=False, steps=["OPT_XT
         print(f"Running step: {step}")
         if not pipeline(step=step, charge=charge, mult=mult, solvent=solvent, Nimages=Nimages):
             print(f"{step} failed. Saving state for restart.")
+            os.chdir(home_dir)
+            with open("FAILED","w") as f: 
+                f.write("")
+
             with open(setting_file_name, 'w') as f:
                 f.write(f"step: {step}\n")
                 f.write(f"charge: {charge}\n")
@@ -599,6 +666,10 @@ def main(charge=0, mult=1, solvent="", Nimages=32, restart=False, steps=["OPT_XT
         print(f"{step} completed successfully\n")
 
     print('All pipeline steps completed successfully.')
+
+    with open("COMPLETED","w") as f: 
+        f.write("")
+
     with open(setting_file_name, 'w') as f:
         f.write(f"step: Completed\n")
         f.write(f"charge: {charge}\n")
@@ -653,6 +724,9 @@ if __name__ == "__main__":
         restart=args.restart,
         steps=args.steps
     )
+
+
+
 
 
 
