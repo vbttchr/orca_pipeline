@@ -581,6 +581,45 @@ def IRC_job(charge=0, mult=1, trial=0, upper_limit=5, solvent="", maxiter=70):
     return IRC_job(charge, mult, trial, upper_limit, solvent, maxiter)
 
 
+def SP(charge=0, mult=1, trial=0, upper_limit=5, solvent="",method="r2scanh",basis="def2-QZVPP"):
+    trial += 1
+    print(f"Trial {trial} for single point calculation")
+
+
+    if trial > upper_limit:
+        print('Too many trials aborting')
+        return False
+
+    solvent_formatted = f"CPCM({solvent})" if solvent else ""
+    job_step="SP"
+
+    if trial < 2:
+        make_folder(job_step)
+        run_subprocess("cp TS/TS_opt.xyz SP/", shell=True)
+        os.chdir('SP')
+
+    SP_input = (f"!{method} {basis} {solvent_formatted}  verytightscf defgrid3 d4\n"
+                f"%pal nprocs {SLURM_PARAMS_LOW_MEM['nprocs']} end\n"
+                f"%maxcore {SLURM_PARAMS_LOW_MEM['maxcore']}\n"
+                f"*xyzfile {charge} {mult} TS_opt.xyz\n")
+    with open('SP.inp', 'w') as f:
+        f.write(SP_input)
+    print(f"Performing single point calculation with {method} {basis} {solvent_formatted}")
+    print(f'Submitting {job_step} job to Slurm')
+    job_id = submit_job("SP.inp", f"{job_step}_slurm.out")
+    status = check_job_status(job_id, step=job_step)
+
+    if status == 'COMPLETED' and 'FINAL SINGLE POINT ENERGY' in grep_output('HURRAY', f'{job_step}.out'):
+        print(f'{job_step} completed successfully')
+        os.chdir('..')
+        return True
+
+    print(f'{job_step} job failed, restarting...')
+    run_subprocess(['scancel', job_id],exit_on_error=False)
+    time.sleep(RETRY_DELAY)
+    run_subprocess("rm -rf *.gbw pmix* *densities* SP.inp slurm*", shell=True,exit_on_error=False)
+    return SP(charge, mult, trial, upper_limit, solvent,method=method,basis=basis)
+
 def restart_pipeline():
     print("Restart detected, loading previous settings.")
     if not os.path.exists("settings_neb_pipeline.txt"):
