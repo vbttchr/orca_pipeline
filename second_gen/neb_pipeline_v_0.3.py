@@ -620,6 +620,23 @@ def SP(charge=0, mult=1, trial=0, upper_limit=5, solvent="",method="r2scanh",bas
     run_subprocess("rm -rf *.gbw pmix* *densities* SP.inp slurm*", shell=True,exit_on_error=False)
     return SP(charge, mult, trial, upper_limit, solvent,method=method,basis=basis)
 
+
+def FOD(charge=0,mult=1,coord="coord.xyz"):
+    """
+   FOD anlysis does run in the directory, which it is called, this is because ORCA plot will seaarch for the GBW stored in a given path. Might be an issue I am having
+
+   function also calls orca plot with default parameter
+
+    default parameters for FOD are used:
+    method: tpssh
+
+    check out grimme for more info or the ORCA manual
+
+    """
+
+    return None
+
+
 def restart_pipeline():
     print("Restart detected, loading previous settings.")
     if not os.path.exists("settings_neb_pipeline.txt"):

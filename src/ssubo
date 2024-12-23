@@ -1,5 +1,5 @@
 #!/bin/bash
-readonly ARGS="$@"
+readonly ARGS=("$@")
 
 # your orca input file MUST provide %pal and %maxcore blocks for this script to work!
 # you also must be on the new software stack
@@ -29,7 +29,7 @@ function get_args () {
               ;;
         esac
     done
-    file=${@:OPTIND:1}
+    file=${*:$OPTIND:1}
 
     if [ "$mail" == True  ]; then
 	    mail="#SBATCH --mail-type=END,FAIL"
@@ -66,39 +66,40 @@ function usage () {
 }
 
 function main () {
-    if [[ -z $ARGS ]]; then
+    if [[ ${#ARGS[@]} -eq 0 ]]; then
         usage
         exit
     fi
 
-    get_args $ARGS
-    fpath=`readlink -f $file`
-    fdir=`dirname $fpath`
-    filename=`basename $fpath`
+    get_args "${ARGS[@]}"
+    fpath=$(readlink -f $file)
+    fdir=$(dirname $fpath)
+    filename=$(basename $fpath)
 	name=${filename/.inp}
 
 #	dos2unix $fpath # converting file to unix from dos
 
-	nproc=`grep -i "%pal" $fpath | awk '{print $3}' | tac | tail -n1` # get number of processor from Orca input
-	memo=`grep -i "%maxcore" $fpath | awk '{print $2}' | tac | tail -n1` # get memory per processor from Orca input
+	nproc=$(grep -i "%pal" $fpath | awk '{print $3}' | tac | tail -n1) # get number of processor from Orca input
+	memo=$(grep -i "%maxcore" $fpath | awk '{print $2}' | tac | tail -n1) # get memory per processor from Orca input
 	memo=$((memo * 125 / 100)) # multiply by some overhead as orca always uses more memory than you request
 
     set_vars_for_orca_version $orcaversion
 
     module purge
-    if [ -n $xtbversion ] ; then
+    if [ -n "$xtbversion" ] ; then
         module load xtb/${xtbversion}
 	echo ${xtbversion}
-        export XTBEXE="$(which xtb)"
+        XTBEXE="$(which xtb)"
+        export XTBEXE
     fi
-    echo $modules
-    module load $modules
+    echo "$modules"
+    module load "$modules"
     module list
 
 
 
 
-    orcaexec=`which orca`
+    orcaexec=$(which orca)
     if [ -n "$orcaexec" ]; then
 	echo "orca executable found: $orcaexec"
     else
@@ -166,12 +167,13 @@ myjobs -j \$SLURM_JOB_ID
 
 script
     echo "Orca Version:" $orcaversion
-    echo "Cores:" $nproc
+    echo "Cores:" "$nproc"
     echo "Time (hours):" $walltime:00
 	echo "Memory (MB per core):" $memo
     echo "Scratch space (MB per node):" $scr
-    echo "Input file:" $fpath
+    echo "Input file:" "$fpath"
 }
 
 main
+
 
