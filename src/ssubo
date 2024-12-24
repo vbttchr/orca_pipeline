@@ -89,8 +89,8 @@ function main () {
     if [ -n "$xtbversion" ] ; then
         module load xtb/${xtbversion}
 	echo ${xtbversion}
-        XTBEXE="$(which xtb)"
-        export XTBEXE
+        xtb_path="$(which xtb)"
+        export XTBEXE="$xtb_path"
     fi
     echo "$modules"
     module load "$modules"
@@ -138,9 +138,12 @@ cp $fdir/*.hess "\$TMPDIR"/ # copy hess files
 cp $fdir/*.pc "\$TMPDIR"/ # copy pointcharges file 
 
 
-cd "\$TMPDIR"/ # Orca needs to be executed from the same folder of the input so that the temporary files are also there
+#cd "\$TMPDIR"/ # Orca needs to be executed from the same folder of the input so that the temporary files are also there
 (
-cd "\$TMPDIR"/
+
+#cd "\$TMPDIR"/
+
+echo $PWD
 while [ ! -f fin ];
 do
 cp -u "\$TMPDIR"/*.out $fdir/ # synchronize output file while calculation still running
@@ -167,11 +170,11 @@ myjobs -j \$SLURM_JOB_ID
 
 script
     echo "Orca Version:" $orcaversion
-    echo "Cores:" "$nproc"
+    echo "Cores:" $nproc
     echo "Time (hours):" $walltime:00
 	echo "Memory (MB per core):" $memo
     echo "Scratch space (MB per node):" $scr
-    echo "Input file:" "$fpath"
+    echo "Input file:" $fpath
 }
 
 main
