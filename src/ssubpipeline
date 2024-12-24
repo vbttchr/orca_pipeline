@@ -1,47 +1,61 @@
-#!/bin/bash 
-echo "Usage: ssubpipeline -n job_name -o output_file -e error_file -f file -c charge -m mult -I images"
+#!/bin/bash
+
+usage() {
+    echo "Usage: $0 [-n job_name] [-o output_file] [-f file] [-c charge] [-m mult] [-i images] [-s solvent] [--restart] [--steps steps]"
+    exit 1
+}
 
 current_dir=$(pwd)
 
 echo $current_dir
 
+# If your new code is in run_pipeline.py and the helper files are also in the same directory,
+# you just need to copy the entire directory or relevant files. For instance:
+cp /cluster/home/jlandis/orca_pipeline/src/run_pipeline.py $current_dir
+cp /cluster/home/jlandis/orca_pipeline/src/hpc_driver.py $current_dir
+cp /cluster/home/jlandis/orca_pipeline/src/step_runner.py $current_dir
+cp /cluster/home/jlandis/orca_pipeline/src/pipeline_manager.py $current_dir
+cp /cluster/home/jlandis/orca_pipeline/src/constants.py $current_dir  # if you have a constants file
+
 # Default values
 job_name="Pipeline"
 output_file="slurm-%j.out"
-error_file="slurm-%j.err"
-file="run.py"
+file="run_pipeline.py"     # <-- changed to your main script
 charge=0
 mult=1
-images=8    
+images=16
+solvent=""
+restart=False
+steps="OPT_XTB,NEB_TS_XTB,TS,IRC"
 
-# Parse input options
-while getopts ":n:o:e:f:c:m:I:" opt; do
-    case $opt in
-        n) job_name="$OPTARG"
-        ;;
-        o) output_file="$OPTARG"
-        ;;
-        e) error_file="$OPTARG"
-        ;;
-        f) file="$OPTARG"
-        ;;
-        c) charge="$OPTARG"
-        ;;
-        m) mult="$OPTARG"
-        ;;
-        I) images="$OPTARG"
-        ;;
-        \?) echo "Invalid option -$OPTARG" >&2
-                exit 1
-        ;;
+# Parse options
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -n) job_name="$2"; shift ;;
+        -o) output_file="$2"; shift ;;
+        -f) file="$2"; shift ;;          # If you still want to allow overriding, you can
+        -c) charge="$2"; shift ;;
+        -m) mult="$2"; shift ;;
+        -i) images="$2"; shift ;;
+        -s) solvent="$2"; shift ;;
+        --restart) restart=true ;;
+        --steps) steps="$2"; shift ;;
+        *) usage ;;
     esac
+    shift
 done
 
 # Submit the SLURM job
-sbatch --job-name="$job_name" --output="$output_file" --error="$error_file" --time=120:00:00 --ntasks=1 --mem-per-cpu=1G <<EOF
+sbatch --job-name="$job_name" --output="$output_file"  --time=216:00:00 --ntasks=1 --mem-per-cpu=1G <<EOF
 #!/bin/bash
 
 cd $current_dir
 
-python3 $file $charge $mult > run.out 2> run.err
+python3 -u $file \
+    --charge $charge \
+    --mult $mult \
+    --solvent "$solvent" \
+    --Nimages $images \
+    --restart $restart \
+    --steps $steps > run.out 2> run.err
 EOF
