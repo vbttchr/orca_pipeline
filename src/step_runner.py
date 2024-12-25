@@ -244,12 +244,20 @@ class StepRunner:
     def neb_ts(self,
                trial=0,
                upper_limit: int = 5,
-               fast=True) -> bool:
+               fast=True,
+               switch=False) -> bool:
         """
         Performs a NEB-TS calculation (optionally FAST) with either XTB or r2scan-3c.
         Checks for convergence with 'HURRAY' and runs a freq job on the converged TS.
-        """
 
+
+        FAST method with xtb is discouraged as xtb2 is already fast enough
+        """
+        if switch:
+            print("[NEB_TS] Switching to r2scan-3c for NEB-TS.")
+            print("Need to reoptimize reactants")
+            os.chdir('..')
+            self.geometry_optimisation()
         
 
         trial += 1
@@ -296,7 +304,7 @@ class StepRunner:
         with open(neb_input_name, 'w') as f:
             f.write(neb_input)
 
-        job_id = self.hpc_driver.submit_job(neb_input_name, "NEB_TS_slurm.out", walltime="48")
+        job_id = self.hpc_driver.submit_job(neb_input_name, "NEB_TS_slurm.out", walltime="72")
         status = self.hpc_driver.check_job_status(job_id, step="NEB_TS")
 
         out_name = neb_input_name.rsplit(".", 1)[0] + ".out"
@@ -304,82 +312,124 @@ class StepRunner:
             print('[NEB_TS] NEB converged successfully. Checking frequency of TS structure...')
             # Typically the NEB TS is in something like: neb-TS_NEB-TS_converged.xyz
             ts_xyz = neb_input_name.rsplit('.', 1)[0] + "_NEB-TS_converged.xyz"
+            time.sleep(RETRY_DELAY)
+
+            ## TODO we need a retry mechanism here if ssubo is to slow. 
             if os.path.exists(ts_xyz):
-                freq_success = self.freq_job(struc_name=ts_xyz, charge=charge, mult=mult, ts=True)
+                potential_ts = Molecule.from_xyz(ts_xyz,charge=self.reaction.charge, mult=self.reaction.mult, solvent=self.reaction.solvent,name="ts")
+                freq_success = self.freq_job(potential_ts, ts=True)
                 if freq_success:
                     # Copy the final TS structure to a known file
-                    self.hpc_driver.shell_command(f"cp {ts_xyz} neb_completed.xyz")
+                    self.reaction.transition_state=potential_ts
+                    
                     os.chdir('..')
                     return True
                 else:
-                    print('[NEB_TS] Frequency job indicates no valid TS. Retry or fallback needed.')
-            else:
-                print(f"[NEB_TS] Could not find converged TS XYZ file: {ts_xyz}")
+                    print("TS has no significant imag freq Retry with refined method")
+                    if not self.handle_failed_imagfreq(trial=0,upper_limit=upper_limit,fast=fast):
+                        os.chdir("..")
+                        return False
+                    else:
+                        return True  ## already changed dir 
+       
 
-        else:
-            print("[NEB_TS] NEB did not converge or job failed. Retrying if trials remain.")
+        elif self.grep_output('ORCA TERMINATED NORMALLY', f'{neb_input_name.rsplit(".", 1)[0]}.out'):
+            print("ORCA has terminated normally, optimisation did not converge.")
+            print("Restart neb with more precise settings, use ")
             self.hpc_driver.scancel_job(job_id)
             # If needed, remove partial files or rename them
             self.hpc_driver.shell_command("rm -rf *.gbw pmix* *densities* freq.inp slurm* *neb*.inp")
+            if not self.handle_unconverged_neb(trial=0,uper_limit=upper_limit,fast=fast):
+                os.chdir("..")
+                return False
+            else:
+                return True
+        print("There was an error during the run, Restart with the same settings")
+        return self.neb_ts(trial=trial,upper_limit=upper_limit,fast=fast,switch=False)
 
-        # Retry
-        return self.neb_ts(charge, mult, trial, Nimages, upper_limit, xtb, fast, solvent)
+    def handle_unconverged_neb(self,trial,uper_limit,fast):
+        if "xtb" in self.reaction.method.lower():
+            print("Restating with FAST-NEB r2scan-3c")
+            self.reaction.method="r2scan-3c"
+            self.reaction.educt.method="r2scan-3c"
+            self.reaction.product.method="r2scan-3c"
+            return self.neb_ts(trial=0,upper_limit=uper_limit,fast=True,switch=True)
+        elif fast:
+            print("Restarting with NEB-TS r2scan-3c")
+            return self.neb_ts(trial=0,upper_limit=uper_limit,fast=False,switch=False)
+        else:
+            return self.neb_ci()
 
 
+    def handle_failed_imagfreq(self,trial,upper_limit,fast):
+
+        """
+       Handles when NEB-TS finished but no significant imag freq is found.
+        """
+
+        ## check what method was used
+
+        if "xtb" in self.reaction.method.lower():
+            print("No significant imaginary frequency found. Retrying with r2scan-3c.")
+            self.reaction.method = "r2scan-3c"
+            self.reaction.educt.method="r2scan-3c"
+            self.reaction.product.method="r2scan-3c"
+            return self.neb_ts(trial=0,upper_limit=upper_limit,fast=True,switch=True)
+        elif fast:
+            print("No significant imaginary frequency found. Retrying with fast=False.")
+            return self.neb_ts(trial=0,upper_limit=upper_limit,fast=False)
+        else:
+            print("No significant imag freq found.")
+            print("Do a neb_ci run to try to get TS guess.")
+            return self.neb_ci()
+            
 
     # ---------- NEB-CI STEP ---------- #
-    def neb_ci(self,
-                  charge: int = 0,
-                  mult: int = 1,
-                  trial: int = 0,
-                  Nimages: int = 8,
-                  upper_limit: int = 5,
-                  xtb: bool = True,
-                  solvent: str = "") -> bool:
+    def neb_ci(self,trial=0,upper_limit:int =5,) -> bool:
+           
+           
+           
            """
            Performs NEB-CI (Climbing Image) calculation. 
-           Similar logic to NEB_TS but with !NEB-CI <method>.
+           Assums that the educt and products are already optimized with the same method
            """
            trial += 1
-           print(f"[NEB_CI] Trial {trial}, Nimages={Nimages}, xtb={xtb}")
+           print(f"[NEB_CI] Trial {trial}, Nimages={self.reaction.nimages}, Method={self.reaction.method}")
            if trial > upper_limit:
                print('[NEB_CI] Too many trials aborting.')
                return False
 
            if trial == 1:
                self.make_folder("NEB_CI")
-               # Copy from OPT or existing NEB
-               self.hpc_driver.shell_command("cp OPT/educt_opt.xyz NEB_CI/educt.xyz")
-               self.hpc_driver.shell_command("cp OPT/product_opt.xyz NEB_CI/product.xyz")
                os.chdir("NEB_CI")
+               self.reaction.educt.to_xyz("educt.xyz")
+               self.reaction.product.to_xyz("product.xyz")
+           solvent_formatted=""
+           if self.reaction.educt.solvent:
+               
+                solvent_foramtted = f"ALPB({self.reaction.educt.solvent})" if "xtb" in self.reaction.method.lower() else f"CPCM({self.reaction.educt.solvent})"
+               
 
-           if xtb and solvent:
-               solvent_formatted = f"ALPB({solvent})"
-           elif solvent and not xtb:
-               solvent_formatted = f"CPCM({solvent})"
-           else:
-               solvent_formatted = ""
 
-           method = "XTB2" if xtb else "r2scan-3c"
-           # Possibly free_end if xtb, depends on your usage
-           free_end = "Free_end true" if xtb else ""
 
            neb_input = (
-               f"!NEB-CI {solvent_formatted} {method}\n"
+               f"!NEB-CI {solvent_formatted} {self.reaction.method}\n"
                f"%pal nprocs {SLURM_PARAMS_LOW_MEM['nprocs']} end\n"
                f"%maxcore {SLURM_PARAMS_LOW_MEM['maxcore']}\n"
-               f"%neb\n  Product \"product.xyz\"\n  NImages {Nimages} {free_end}\nend\n"
-               f"*xyzfile {charge} {mult} educt.xyz\n"
+               f"%neb\n  Product \"product.xyz\"\n  NImages {self.reaction.nimages} \nend\n"
+               f"*xyzfile {self.reaction.charge} {self.reaction.mult} educt.xyz\n"
            )
 
            with open('neb-CI.inp', 'w') as f:
                f.write(neb_input)
 
-           job_id = self.hpc_driver.submit_job("neb-CI.inp", "neb-ci_slurm.out", walltime="48")
+           job_id = self.hpc_driver.submit_job("neb-CI.inp", "neb-ci_slurm.out", walltime="72")
            status = self.hpc_driver.check_job_status(job_id, step="NEB-CI")
 
            if status == 'COMPLETED' and 'H U R R A Y' in self.grep_output('H U R R A Y', 'neb-CI.out'):
                print('[NEB_CI] Completed successfully.')
+               self.reaction.transition_state=Molecule.from_xyz("neb-CI.xyz",charge=self.reaction.educt.charge,mult=self.reaction.educt.mult,solvent=self.reaction.educt.solvent,method="r2scan-3c")
+               
                os.chdir('..')
                return True
            else:
@@ -387,15 +437,12 @@ class StepRunner:
                self.hpc_driver.scancel_job(job_id)
                time.sleep(RETRY_DELAY)
                self.hpc_driver.shell_command("rm -rf *.gbw pmix* *densities* freq.inp slurm* neb*im* *neb*.inp")
-               return self.neb_ci(charge, mult, trial, Nimages, upper_limit, xtb, solvent)
+               return self.neb_ci(trial,upper_limit=upper_limit)
 
     # ---------- TS Optimization STEP ---------- #
     def ts_opt(self,
-               charge: int = 0,
-               mult: int = 1,
                trial: int = 0,
-               upper_limit: int = 5,
-               solvent: str = "") -> bool:
+               upper_limit: int = 5) -> bool:
         """
         Takes a guessed TS (e.g., from NEB) and optimizes it with r2scan-3c OptTS.
         Checks for 'HURRAY' in output. Retries if fails.
@@ -408,25 +455,24 @@ class StepRunner:
 
         if trial == 1:
             self.make_folder("TS")
-            if not os.path.exists("NEB/neb_completed.xyz"):
-                print("[TS_OPT] No 'neb_completed.xyz' found from NEB. Exiting.")
-                return False
-            self.hpc_driver.shell_command("cp NEB/neb_completed.xyz TS/ts_guess.xyz")
             os.chdir("TS")
+            self.reaction.transition_state.to_xyz("ts_guess.xyz")
+            
+            
 
         # Always run freq job on the guess to ensure negative frequency
-        if not self.freq_job(struc_name="ts_guess.xyz", charge=charge, mult=mult, ts=True):
+        if not self.freq_job(self.reaction.transition_state, ts=True):
             print("[TS_OPT] Frequency job indicates no negative frequency. Aborting.")
             return False
 
-        solvent_formatted = f"CPCM({solvent})" if solvent else ""
+        solvent_formatted = f"CPCM({self.reaction.educt.solvent})" if self.reaction.educt.solvent else ""
 
         ts_input = (
-            f"!r2scan-3c OptTS tightscf {solvent_formatted}\n"
+            f"!{self.reaction.method} OptTS tightscf {solvent_formatted}\n"
             f"%geom\ninhess read\ninhessname \"freq.hess\"\nCalc_Hess true\nrecalc_hess 15\nend\n"
             f"%pal nprocs {SLURM_PARAMS_HIGH_MEM['nprocs']} end\n"
             f"%maxcore {SLURM_PARAMS_HIGH_MEM['maxcore']}\n"
-            f"*xyzfile {charge} {mult} ts_guess.xyz\n"
+            f"*xyzfile {self.reaction.educt.charge} {self.reaction.educt.mult} ts_guess.xyz\n"
         )
 
         with open("TS_opt.inp", "w") as f:
@@ -447,14 +493,11 @@ class StepRunner:
         if os.path.exists('TS_opt.xyz'):
             os.rename('TS_opt.xyz', 'ts_guess.xyz')
 
-        return self.ts_opt(charge, mult, trial, upper_limit, solvent)
+        return self.ts_opt(trial=trial,upper_limit=upper_limit)
 
     def irc_job(self,
-                charge: int = 0,
-                mult: int = 1,
                 trial: int = 0,
                 upper_limit: int = 5,
-                solvent: str = "",
                 maxiter: int = 70) -> bool:
         """
         Runs an Intrinsic Reaction Coordinate (IRC) calculation from an optimized TS.
@@ -468,25 +511,25 @@ class StepRunner:
 
         if trial == 1:
             self.make_folder("IRC")
-            if not os.path.exists("TS/TS_opt.xyz"):
-                print("[IRC] TS_opt.xyz not found in TS folder. Exiting.")
-                return False
-            self.hpc_driver.shell_command("cp TS/TS_opt.xyz IRC/")
             os.chdir("IRC")
+            self.reaction.transition_state.to_xyz("TS_opt.xyz")
+
+            
+            
 
             # Run freq job to ensure negative frequency for TS
-            if not self.freq_job(struc_name="TS_opt.xyz", charge=charge, mult=mult, ts=True):
+            if not self.freq_job(mol=self.reaction.transition_state,ts=True):
                 print("[IRC] TS frequency job invalid. Aborting IRC.")
                 return False
 
-        solvent_formatted = f"CPCM({solvent})" if solvent else ""
+        solvent_formatted = f"CPCM({self.reaction.educt.solvent})" if self.reaction.educt.solvent else ""
 
         irc_input = (
-            f"!r2scan-3c IRC tightscf {solvent_formatted}\n"
+            f"!{self.reaction.method} IRC tightscf {solvent_formatted}\n"
             f"%irc\n  maxiter {maxiter}\n  InitHess read\n  Hess_Filename \"freq.hess\"\nend\n"
             f"%pal nprocs {SLURM_PARAMS_LOW_MEM['nprocs']} end\n"
             f"%maxcore {SLURM_PARAMS_LOW_MEM['maxcore']}\n"
-            f"*xyzfile {charge} {mult} TS_opt.xyz\n"
+            f"*xyzfile {self.reaction.educt.charge} {self.reaction.educt.mult} TS_opt.xyz\n"
         )
 
         with open("IRC.inp", "w") as f:
@@ -511,9 +554,12 @@ class StepRunner:
 
         time.sleep(RETRY_DELAY)
         self.hpc_driver.shell_command("rm -rf *.gbw pmix* *densities* IRC.inp slurm*")
-        return self.irc_job(charge, mult, trial, upper_limit, solvent, maxiter)
+        return self.irc_job(trial=trial,upper_limit=upper_limit,maxiter=maxiter)
 
     # ---------- SINGLE POINT (SP) STEP ---------- #
+
+
+    ###TODO continue here
     def sp_calc(self,
                 charge: int = 0,
                 mult: int = 1,
