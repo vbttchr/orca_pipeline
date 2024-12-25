@@ -24,12 +24,19 @@ class Molecule:
 
     """
 
-    def __init__(self, name:str, atoms: List[str], coords: np.ndarray,mult:int,charge:int) -> None:
+    def __init__(self, name:str, atoms: List[str], coords: np.ndarray,mult:int,charge:int,solvent:str=None,method:str="r2scan-3c") -> None:
         self.name = name
         self.atoms = atoms
         self.coords = coords
         self.mult = mult
         self.charge = charge
+        self.solvent = solvent
+        self.method = method
+
+
+       
+
+        
         if len(atoms) != coords.shape[1]:
             raise ValueError("Number of atoms and coordinates must match.")
         if mult < 1:
@@ -37,14 +44,14 @@ class Molecule:
     
     @classmethod
 
-    def from_xyz(cls, filepath: str,name:str=None) -> 'Molecule':
+    def from_xyz(cls, filepath: str, charge:int,mult:int, solvent:str=None,name:str="mol",method:str="r2scan-3c") -> 'Molecule':
         """
         Creates a Molecule instance from an XYZ file.
         """
         if name==None:
             name = os.path.basename(filepath).split('.')[0]
         atoms, coords = read_xyz(filepath)
-        return cls(name, atoms, coords, 1, 0)
+        return cls(name, atoms, coords, charge=charge, mult=mult, solvent=solvent,method=method)
     def __str__(self) -> str:
         return f"Molecule(name={self.name},atoms={self.atoms}, coordinates={self.coords}, Multiplicity={self.mult}, Charge={self.charge})"
 
@@ -78,15 +85,28 @@ class Molecule:
                 file.write(f"{atom} {coord[0]:.9f} {coord[1]:.9f} {coord[2]:.9f}\n")
 
 
-class ElementaryStep:
+class Reaction:
     """
     Represents a elementary step in a reaction.
     """
 
-    def __init__(self, educt:Molecule,product:Molecule,transitions_state:Molecule=None ) -> None:
+    def __init__(self, educt:Molecule,product:Molecule,transitions_state:Molecule=None,nimages:int=16,method:str="r2scan-3c") -> None:
         self.educt = educt
-        self.products = product
+        self.product = product
         self.transition_state = transitions_state
+        self.nimages = nimages
+        self.method = method
+
+
+        if educt.charge != product.charge:
+            raise ValueError("Charge of educt and product must match.")
+        
+        if educt.mult != product.mult:
+            raise ValueError("Exicited state reactions are not supported yet.")
+        
+
+        
+
 
     @classmethod
 
@@ -101,7 +121,7 @@ class ElementaryStep:
         return f"{reactant_strs} => {product_strs}"
 
 
-    def from_xyz(cls, educt_filepath: str, product_filepath: str, transition_state_filepath: str = None) -> 'ElementaryStep':
+    def from_xyz(cls, educt_filepath: str, product_filepath: str, transition_state_filepath: str = None,nimages:int=16) -> 'ElementaryStep':
         """
         Creates an ElementaryStep instance from XYZ files.
         """

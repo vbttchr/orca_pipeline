@@ -12,24 +12,12 @@ import time
 import shutil
 import concurrent.futures
 from typing import Optional
-
+from chemistry import Reaction, Molecule
+from constants import SLURM_PARAMS_LOW_MEM, SLURM_PARAMS_HIGH_MEM, RETRY_DELAY, FREQ_THRESHOLD,MAX_TRIALS
 
 from hpc_driver import HPCDriver  # Import your HPC driver
 
 # Optionally move these to a separate constants file
-MAX_TRIALS = 5
-FREQ_THRESHOLD = -50
-RETRY_DELAY = 60
-
-SLURM_PARAMS_HIGH_MEM = {
-    'nprocs': 16,
-    'maxcore': 12000
-}
-
-SLURM_PARAMS_LOW_MEM = {
-    'nprocs': 24,
-    'maxcore': 2524
-}
 
 
 class StepRunner:
@@ -39,8 +27,17 @@ class StepRunner:
     Uses HPCDriver for all HPC interactions.
     """
 
-    def __init__(self, hpc_driver: HPCDriver) -> None:
+    def __init__(self, hpc_driver: HPCDriver, reaction:Reaction=None, molecule:Molecule=None ) -> None:
         self.hpc_driver = hpc_driver
+        self.reaction = reaction
+        self.molecule = molecule
+        self.state = "INITIALISED"
+
+        if not (molecule and reaction):
+            print("Please provide a reaction or a molecule.")
+            exit
+        
+        
 
     @staticmethod
     def make_folder(dir_name: str) -> None:
@@ -69,16 +66,16 @@ class StepRunner:
         return ""
 
     # ---------- OPTIMIZATION STEP ---------- #
-    def optimise_reactants(self,
-                           charge: int = 0,
-                           mult: int = 1,
+    def geometry_optimisation(self,
                            trial: int = 0,
                            upper_limit: int = 5,
-                           solvent: str = "",
                            xtb: bool = True) -> bool:
         """
         Optimize educt and product with XTB or r2scan-3c. Retries if fails.
         """
+
+
+
         trial += 1
         print(f"[OPT] Trial {trial} for reactant optimisation")
 
@@ -87,30 +84,44 @@ class StepRunner:
             return False
 
         method = "XTB2" if xtb else "r2scan-3c"
-        solvent_formatted = ""
-        if solvent:
-            solvent_formatted = f"ALPB({solvent})" if xtb else f"CPCM({solvent})"
+        
+ 
 
         if trial == 1:
             self.make_folder('OPT')
-            self.hpc_driver.shell_command("cp *.xyz OPT")
             os.chdir('OPT')
+            if self.molecule:
+                self.molecule.to_xyz()
+            else:
+                self.reaction.educt.to_xyz('educt.xyz')
+                self.reaction.product.to_xyz('product.xyz')   
 
         print("Starting reactant optimisation")
-        job_inputs = {
-            'educt_opt.inp': (
-                f"!{method} {solvent_formatted} opt\n"
-                f"%pal nprocs {SLURM_PARAMS_LOW_MEM['nprocs']} end\n"
-                f"%maxcore {SLURM_PARAMS_LOW_MEM['maxcore']}\n"
-                f"*xyzfile {charge} {mult} educt.xyz\n"
-            ),
-            'product_opt.inp': (
-                f"!{method} {solvent_formatted} opt\n"
-                f"%pal nprocs {SLURM_PARAMS_LOW_MEM['nprocs']} end\n"
-                f"%maxcore {SLURM_PARAMS_LOW_MEM['maxcore']}\n"
-                f"*xyzfile {charge} {mult} product.xyz\n"
-            )
-        }
+        if self.reaction:
+            solvent_formatted = f"ALPB({self.reaction.educt.solvent})" if xtb else f"CPCM({self.reaction.educt.solvent})"
+            job_inputs = {
+                'educt_opt.inp': (
+                    f"!{method} {solvent_formatted} opt\n"
+                    f"%pal nprocs {SLURM_PARAMS_LOW_MEM['nprocs']} end\n"
+                    f"%maxcore {SLURM_PARAMS_LOW_MEM['maxcore']}\n"
+                    f"*xyzfile {self.reaction.educt.charge} {self.reaction.educt.mult} educt.xyz\n"
+                ),
+                'product_opt.inp': (
+                    f"!{method} {solvent_formatted} opt\n"
+                    f"%pal nprocs {SLURM_PARAMS_LOW_MEM['nprocs']} end\n"
+                    f"%maxcore {SLURM_PARAMS_LOW_MEM['maxcore']}\n"
+                    f"*xyzfile {self.reaction.product.charge} {self.reaction.product.mult} product.xyz\n"
+                )
+            }
+        else:
+            job_inputs = {
+                f'{self.molecule.name}_opt.inp': (
+                    f"!{method} {solvent_formatted} opt\n"
+                    f"%pal nprocs {SLURM_PARAMS_LOW_MEM['nprocs']} end\n"
+                    f"%maxcore {SLURM_PARAMS_LOW_MEM['maxcore']}\n"
+                    f"*xyzfile {self.molecule.charge} {self.molecule.mult} coord.xyz\n"
+                )
+            }
 
         # Write input files
         for fname, content in job_inputs.items():
@@ -125,42 +136,44 @@ class StepRunner:
             job_ids.append(job_id)
 
         # Wait for completion
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(job_ids)) as executor:
             futures = [executor.submit(self.hpc_driver.check_job_status, jid) for jid in job_ids]
             statuses = [f.result() for f in futures]
 
-        educt_status, product_status = statuses
-        print(f'[OPT] Educt Status: {educt_status}')
-        print(f'[OPT] Product Status: {product_status}')
+        if all(status == 'COMPLETED' for status in statuses):
+            if all('HURRAY' in self.grep_output('HURRAY', f.replace('.inp', '.out')) for f in job_inputs.keys()):
+                print("[OPT] Optimisation jobs completed.")
+                if self.reaction:
+                    self.reaction.educt = Molecule.from_xyz('educt_opt.xyz',charge=self.reaction.educt.charge, mult=self.reaction.educt.mult, solvent=self.reaction.educt.solvent,name=self.reaction.educt.name)
+                    self.reaction.product = Molecule.from_xyz('product_opt.xyz',charge=self.reaction.product.charge, mult=self.reaction.product.mult, solvent=self.reaction.product.solvent,name=self.reaction.product.name)
+                    
 
-        if educt_status == 'COMPLETED' and product_status == 'COMPLETED':
-            educt_success = 'HURRAY' in self.grep_output('HURRAY', 'educt_opt.out')
-            product_success = 'HURRAY' in self.grep_output('HURRAY', 'product_opt.out')
-            if educt_success and product_success:
+                else:
+                    self.molecule = Molecule.from_xyz(f"{self.molecule.name}_opt.xyz",charge=self.molecule.charge, mult=self.molecule.mult, solvent=self.molecule.solvent,name=self.molecule.name)
+
+                self.state="OPT_COMPLETED"
                 os.chdir('..')
                 return True
-
-        # If failed
-        print("[OPT] One of the optimisation jobs failed, restarting both.")
+                
+                    
+        
+        print("[OPT] Optimisation jobs failed. Retrying...")
         for jid in job_ids:
             self.hpc_driver.scancel_job(jid)
-
         time.sleep(RETRY_DELAY)
-        self.hpc_driver.shell_command("rm -rf *.gbw pmix* *densities* freq.inp slurm* educt_opt.inp product_opt.inp")
-        for xyz in ["educt_opt.xyz", "product_opt.xyz"]:
-            if os.path.exists(xyz):
-                os.rename(xyz, xyz.replace("_opt", ""))
-
-        return self.optimise_reactants(charge, mult, trial, upper_limit, solvent, xtb)
+        self.hpc_driver.shell_command("rm -rf *.gbw pmix* *densities*  slurm* educt_opt.inp product_opt.inp")
+        if self.reaction:
+            self.reaction.educt.to_xyz('educt_opt.xyz',charge=self.reaction.educt.charge, mult=self.reaction.educt.mult, solvent=self.reaction.educt.solvent,name=self.reaction.educt.name)
+            self.reaction.product.to_xyz('product_opt.xyz',charge=self.reaction.product.charge, mult=self.reaction.product.mult, solvent=self.reaction.product.solvent,name=self.reaction.product.name)
+        else:
+            self.molecule.to_xyz(f"{self.molecule.name}_opt.xyz",charge=self.molecule.charge, mult=self.molecule.mult, solvent=self.molecule.solvent,name=self.molecule.name)
+        return self.geometry_optimisation(trial, upper_limit, xtb)
+        
 
     # ---------- FREQUENCY STEP ---------- #
     def freq_job(self,
-                 struc_name: str = "coord.xyz",
-                 charge: int = 0,
-                 mult: int = 1,
                  trial: int = 0,
-                 upper_limit: int = 5,
-                 solvent: str = "",
+                 upper_limit: int = MAX_TRIALS,
                  xtb: bool = False,
                  ts: bool = False) -> bool:
         """

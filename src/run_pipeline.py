@@ -7,14 +7,43 @@ pipeline using HPCDriver, StepRunner, and PipelineManager.
 """
 
 import argparse
+import os
 from typing import List
 
 from hpc_driver import HPCDriver
 from step_runner import StepRunner
 from pipeline_manager import PipelineManager
 from constants import DEFAULT_STEPS
+from chemistry import Molecule,Reaction
+import yaml
 
 
+"""
+# config.yaml
+
+method: "r2scan-3c"
+solvent: "water"
+mult: 1
+charge: 0
+steps: "opt, freq, neb,ts..."
+coords: educt.xyz, product.xyz, ts.xyz # or just a filename 
+restart: false
+Nimages: 8
+
+
+"""
+
+
+def parse_yaml(file_path: str) -> dict:
+    """
+    Parses a YAML file and returns the contents as a dictionary.
+    """
+    with open(file_path, 'r') as file:
+        try:
+            return yaml.safe_load(file)
+        except yaml.YAMLError as exc:
+            print(f"Error parsing YAML file: {exc}")
+            return {}
 
 
 def str2bool(v: str) -> bool:
@@ -38,35 +67,49 @@ def parse_steps(steps_str: str) -> List[str]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run NEB optimization pipeline (OOP style).")
-    parser.add_argument("--charge", "-c", type=int, default=0, help="Charge of the system")
-    parser.add_argument("--mult", "-m", type=int, default=1, help="Multiplicity of the system")
-    parser.add_argument("--solvent", "-s", type=str, default="", help="Solvent model to use")
-    parser.add_argument("--Nimages", "-i", type=int, default=8, help="Number of images for NEB")
-    parser.add_argument("--restart", type=str2bool, default=False, help="Restart from previous calculations")
-    parser.add_argument(
-        "--steps",
-        type=parse_steps,
-        default=DEFAULT_STEPS,
-        help="Steps to run in the pipeline, comma separated"
-    )
 
+    """
+    Change this to a input based (yaml) part. 
+    """
+
+
+    parser = argparse.ArgumentParser(description="Run the ORCA pipeline.")
+    
+    parser.add_argument('config', type=str, required=True, help='Path to the YAML configuration file.')
     args = parser.parse_args()
 
-    cli_info = (
-        f"Charge: {args.charge}\n"
-        f"Multiplicity: {args.mult}\n"
-        f"Solvent: {args.solvent}\n"
-        f"Nimages: {args.Nimages}\n"
-        f"Steps: {','.join(args.steps)}\n"
-        f"Restart: {args.restart}"
-    )
-    print("[CLI] Starting Pipeline with parameters:")
-    print(cli_info)
+    config = parse_yaml(args.config)
+
+    charge = config.get('charge', 0)
+    mult = config.get('mult', 1)
+    method = config.get('method', 'r2scan-3c')
+    coords= config.get('coords', "educt.xyz", "product.xyz")
+    solvent = config.get('solvent', None)
+    Nimages = config.get('Nimages', 16)
+    steps = parse_steps(config.get('steps', DEFAULT_STEPS))
+    restart = config.get('restart', False)
+    
+
+
+    print("Starting Pipeline with parameters:")
+    print(config)
 
     # Initialize HPCDriver and StepRunner
+    mol=None
+    reaction=None
+    if len(coords) ==1:
+        name=os.path.basename(coords[0]).split('.')[0]
+        mol=Molecule.from_xyz(filepath=coords[0],charge=charge,mult=mult,solvent=solvent,name=name,method=method)
+    elif len(coords) ==2:
+
+        reaction=Reaction.from_xyz(educt=coords[0],product=coords[1],transitions_state=None,nimages=Nimages,method=method)
+
+    elif len(coords) ==3:
+        reaction=Reaction.from_xyz(educt=coords[0],product=coords[1],transition_state_filepath=coords[2],nimages=Nimages)    #Reaction
+
+
     hpc_driver = HPCDriver()
-    step_runner = StepRunner(hpc_driver)
+    step_runner = StepRunner(hpc_driver,reaction=reaction,molecule=mol)
     pipeline_manager = PipelineManager(step_runner)
 
     # Run the pipeline
