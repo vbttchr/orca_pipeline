@@ -121,11 +121,11 @@ class Reaction:
         return f"{reactant_strs} => {product_strs}"
 
 
-    def from_xyz(cls, educt_filepath: str, product_filepath: str, transition_state_filepath: str = None,nimages:int=16) -> 'ElementaryStep':
+    def from_xyz(cls, educt_filepath: str, product_filepath: str, transition_state_filepath: str = None,nimages:int=16,method:str="r2scan-3c",charge:int=0,mult:int=1,solvent:str=None) -> 'ElementaryStep':
         """
         Creates an ElementaryStep instance from XYZ files.
         """
-        educt = Molecule.from_xyz(educt_filepath)
-        product = Molecule.from_xyz(product_filepath)
-        transition_state = Molecule.from_xyz(transition_state_filepath) if transition_state_filepath else None
+        educt = Molecule.from_xyz(educt_filepath,charge=charge,mult=mult,solvent=solvent,method=method,name="educt")
+        product = Molecule.from_xyz(product_filepath,charge=charge,mult=mult,solvent=solvent,method=method,name="product")
+        transition_state = Molecule.from_xyz(transition_state_filepath,charge=charge,mult=mult,solvent=solvent,name="ts",method=method) if transition_state_filepath else None
         return cls(educt, product, transition_state)
