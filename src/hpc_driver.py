@@ -10,7 +10,7 @@ import sys
 import subprocess
 import time
 from typing import List, Optional
-from constants import SUBMIT_COMMAND, CHECK_STATES 
+from constants import SSUBO, CHECK_STATES 
 
 
 
@@ -26,7 +26,7 @@ class HPCDriver:
                  submit_cmd: List[str] = None,
                  check_states: List[str] = None,
                  retry_delay: int = 60) -> None:
-        self.submit_cmd = submit_cmd or SUBMIT_COMMAND
+        self.submit_cmd = submit_cmd or SSUBO
         self.check_states = check_states or CHECK_STATES
         self.retry_delay = retry_delay
 

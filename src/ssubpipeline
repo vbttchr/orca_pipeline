@@ -9,18 +9,16 @@ current_dir=$(pwd)
 
 echo $current_dir
 
-# If your new code is in run_pipeline.py and the helper files are also in the same directory,
-# you just need to copy the entire directory or relevant files. For instance:
-cp /cluster/home/jlandis/orca_pipeline/src/run_pipeline.py $current_dir
-cp /cluster/home/jlandis/orca_pipeline/src/hpc_driver.py $current_dir
-cp /cluster/home/jlandis/orca_pipeline/src/step_runner.py $current_dir
-cp /cluster/home/jlandis/orca_pipeline/src/pipeline_manager.py $current_dir
-cp /cluster/home/jlandis/orca_pipeline/src/constants.py $current_dir  # if you have a constants file
+cp /cluster/home/jlandis/orca_pipeline/src/run_pipeline.py "$current_dir"
+cp /cluster/home/jlandis/orca_pipeline/src/hpc_driver.py "$current_dir"
+cp /cluster/home/jlandis/orca_pipeline/src/step_runner.py "$current_dir"
+cp /cluster/home/jlandis/orca_pipeline/src/pipeline_manager.py "$current_dir"
+cp /cluster/home/jlandis/orca_pipeline/src/constants.py "$current_dir" 
 
 # Default values
 job_name="Pipeline"
 output_file="slurm-%j.out"
-file="run_pipeline.py"     # <-- changed to your main script
+file="run_pipeline.py"    
 charge=0
 mult=1
 images=16
@@ -33,7 +31,7 @@ while [[ "$#" -gt 0 ]]; do
     case $1 in
         -n) job_name="$2"; shift ;;
         -o) output_file="$2"; shift ;;
-        -f) file="$2"; shift ;;          # If you still want to allow overriding, you can
+        -f) file="$2"; shift ;;          
         -c) charge="$2"; shift ;;
         -m) mult="$2"; shift ;;
         -i) images="$2"; shift ;;
