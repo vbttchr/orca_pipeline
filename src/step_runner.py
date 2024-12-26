@@ -280,7 +280,7 @@ class StepRunner:
             self.reaction.educt.to_xyz("educt.xyz")
             self.reaction.product.to_xyz("product.xyz")
 
-            geom_block = ""
+        geom_block = ""
 
         if "xtb" in self.reaction.method.lower():
             with open("product.xyz") as f:
