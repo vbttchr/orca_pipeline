@@ -1,6 +1,6 @@
 SSUBO = ["ssubo", "-m", "No"]
 CHECK_STATES = ['COMPLETED', 'FAILED', 'CANCELLED', 'TIMEOUT']
-DEFAULT_STEPS = ["OPT", "FAST_NEB_TS", "TS", "IRC"]
+DEFAULT_STEPS = ["OPT", "NEB_TS", "TS", "IRC"]
 
 
 MAX_TRIALS = 5
