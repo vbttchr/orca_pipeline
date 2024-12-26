@@ -4,6 +4,9 @@ run_pipeline.py
 
 The main script that parses command-line arguments and orchestrates the 
 pipeline using HPCDriver, StepRunner, and PipelineManager.
+
+maybe associate the methods of step_runner to Reaction and Molecule classes.
+
 """
 
 import argparse
@@ -14,7 +17,7 @@ from hpc_driver import HPCDriver
 from step_runner import StepRunner
 from pipeline_manager import PipelineManager
 from constants import DEFAULT_STEPS
-from chemistry import Molecule,Reaction
+from chemistry import Molecule, Reaction
 import yaml
 
 
@@ -27,7 +30,6 @@ mult: 1
 charge: 0
 steps: "opt, freq, neb,ts..."
 coords: educt.xyz, product.xyz, ts.xyz # or just a filename 
-restart: false
 Nimages: 8
 
 
@@ -67,15 +69,14 @@ def parse_steps(steps_str: str) -> List[str]:
 
 
 def main() -> None:
-
     """
     Change this to a input based (yaml) part. 
     """
 
-
     parser = argparse.ArgumentParser(description="Run the ORCA pipeline.")
-    
-    parser.add_argument('config', type=str, required=True, help='Path to the YAML configuration file.')
+
+    parser.add_argument('config', type=str, required=True,
+                        help='Path to the YAML configuration file.')
     args = parser.parse_args()
 
     config = parse_yaml(args.config)
@@ -83,44 +84,37 @@ def main() -> None:
     charge = config.get('charge', 0)
     mult = config.get('mult', 1)
     method = config.get('method', 'r2scan-3c')
-    coords= config.get('coords', "educt.xyz", "product.xyz")
+    coords = config.get('coords', "educt.xyz", "product.xyz")
     solvent = config.get('solvent', None)
     Nimages = config.get('Nimages', 16)
     steps = parse_steps(config.get('steps', DEFAULT_STEPS))
-    restart = config.get('restart', False)
-    
-
 
     print("Starting Pipeline with parameters:")
     print(config)
 
     # Initialize HPCDriver and StepRunner
-    mol=None
-    reaction=None
-    if len(coords) ==1:
-        name=os.path.basename(coords[0]).split('.')[0]
-        mol=Molecule.from_xyz(filepath=coords[0],charge=charge,mult=mult,solvent=solvent,name=name,method=method)
-    elif len(coords) ==2:
+    mol = None
+    reaction = None
+    if len(coords) == 1:
+        name = os.path.basename(coords[0]).split('.')[0]
+        mol = Molecule.from_xyz(
+            filepath=coords[0], charge=charge, mult=mult, solvent=solvent, name=name, method=method)
+    elif len(coords) == 2:
 
-        reaction=Reaction.from_xyz(educt=coords[0],product=coords[1],transitions_state=None,nimages=Nimages,method=method)
+        reaction = Reaction.from_xyz(
+            educt=coords[0], product=coords[1], transitions_state=None, nimages=Nimages, method=method)
 
-    elif len(coords) ==3:
-        reaction=Reaction.from_xyz(educt=coords[0],product=coords[1],transition_state_filepath=coords[2],nimages=Nimages)    #Reaction
-
+    elif len(coords) == 3:
+        reaction = Reaction.from_xyz(
+            educt=coords[0], product=coords[1], transition_state_filepath=coords[2], nimages=Nimages)  # Reaction
 
     hpc_driver = HPCDriver()
-    step_runner = StepRunner(hpc_driver,reaction=reaction,molecule=mol)
+    step_runner = StepRunner(hpc_driver, reaction=reaction, molecule=mol)
+    # continue here
     pipeline_manager = PipelineManager(step_runner)
 
     # Run the pipeline
-    pipeline_manager.run_pipeline(
-        charge=args.charge,
-        mult=args.mult,
-        solvent=args.solvent,
-        Nimages=args.Nimages,
-        restart=args.restart,
-        steps=args.steps
-    )
+    pipeline_manager.run_pipeline(steps=steps)
 
 
 if __name__ == "__main__":

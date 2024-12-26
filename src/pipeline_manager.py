@@ -38,7 +38,8 @@ class PipelineManager:
             sys.exit(1)
 
         with open(SETTINGS_FILE, 'r') as f:
-            settings = dict(line.strip().split(':') for line in f if ':' in line)
+            settings = dict(line.strip().split(':')
+                            for line in f if ':' in line)
 
         step = settings.get('step', '')
         charge = int(settings.get('charge', 0))
@@ -91,24 +92,21 @@ class PipelineManager:
 
     def pipeline(self,
                  step: str,
-                 charge: int,
-                 mult: int,
-                 solvent: str,
-                 Nimages: int) -> bool:
+                 ) -> bool:
         """
         Maps step strings to methods in StepRunner.
         """
-        fast=False
+        fast = False
         if "NEB" in step:
-            fast= False if "xtb" in self.step_runner.reaction.method.lower() else True
+            fast = False if "xtb" in self.step_runner.reaction.method.lower() else True
         steps_mapping = {
-            "OPT": lambda: self.step_runner.geometry_optimisation(trial=0,upper_limit=MAX_TRIALS),
+            "OPT": lambda: self.step_runner.geometry_optimisation(trial=0, upper_limit=MAX_TRIALS),
 
-            "NEB_TS": lambda: self.step_runner.neb_ts(trial=0,upper_limit=MAX_TRIALS,fast=fast,switch=False),
+            "NEB_TS": lambda: self.step_runner.neb_ts(trial=0, upper_limit=MAX_TRIALS, fast=fast, switch=False),
 
-            "NEB_CI": lambda: self.step_runner.neb_ci(trial=0,upper_limit=MAX_TRIALS),
-            "TS": lambda: self.step_runner.ts_opt(trial=0,upper_limit=MAX_TRIALS),
-            "IRC": lambda: self.step_runner.irc_job(trial=0,upper_limit=MAX_TRIALS),
+            "NEB_CI": lambda: self.step_runner.neb_ci(trial=0, upper_limit=MAX_TRIALS),
+            "TS": lambda: self.step_runner.ts_opt(trial=0, upper_limit=MAX_TRIALS),
+            "IRC": lambda: self.step_runner.irc_job(trial=0, upper_limit=MAX_TRIALS),
             "SP": lambda: self.step_runner.sp_calc(),
         }
 
@@ -122,27 +120,17 @@ class PipelineManager:
         return step_function()
 
     def run_pipeline(self,
-                     charge: int,
-                     mult: int,
-                     solvent: str,
-                     Nimages: int,
-                     restart: bool,
                      steps: List[str]) -> None:
         """
         Coordinates the entire pipeline, including restarts if specified.
         """
-        if restart:
-            step_to_restart, charge, mult, solvent, Nimages, _ = self.load_settings()
-            if step_to_restart in steps:
-                steps = steps[steps.index(step_to_restart):]
-            print(f"Restarting from step: {step_to_restart}")
 
         for stp in steps:
             print(f"--- Running step: {stp} ---")
-            success = self.pipeline(stp, charge, mult, solvent, Nimages)
+            success = self.pipeline(stp)
             if not success:
                 print(f"{stp} failed. Saving state for restart.")
-                self.save_failure_state(stp, charge, mult, solvent, Nimages)
+                self.save_failure_state(stp)
                 sys.exit(1)
             print(f"--- Step {stp} completed successfully ---\n")
 

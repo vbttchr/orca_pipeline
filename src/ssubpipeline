@@ -14,7 +14,7 @@ cp /cluster/home/jlandis/orca_pipeline/src/hpc_driver.py "$current_dir"
 cp /cluster/home/jlandis/orca_pipeline/src/step_runner.py "$current_dir"
 cp /cluster/home/jlandis/orca_pipeline/src/pipeline_manager.py "$current_dir"
 cp /cluster/home/jlandis/orca_pipeline/src/constants.py "$current_dir" 
-
+cp /cluster/home/jlandis/orca_pipeline/src/chemistry.py "$current_dir"
 # Default values
 job_name="Pipeline"
 output_file="slurm-%j.out"

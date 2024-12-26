@@ -13,7 +13,7 @@ import shutil
 import concurrent.futures
 from typing import Optional
 from chemistry import Reaction, Molecule
-from constants import SLURM_PARAMS_LOW_MEM, SLURM_PARAMS_HIGH_MEM, SLURM_PARAMS_XTB, RETRY_DELAY, FREQ_THRESHOLD,MAX_TRIALS
+from constants import SLURM_PARAMS_LOW_MEM, SLURM_PARAMS_HIGH_MEM, SLURM_PARAMS_XTB, RETRY_DELAY, FREQ_THRESHOLD, MAX_TRIALS
 
 from hpc_driver import HPCDriver  # Import your HPC driver
 
@@ -27,7 +27,7 @@ class StepRunner:
     Uses HPCDriver for all HPC interactions.
     """
 
-    def __init__(self, hpc_driver: HPCDriver, reaction:Reaction=None, molecule:Molecule=None ) -> None:
+    def __init__(self, hpc_driver: HPCDriver, reaction: Reaction = None, molecule: Molecule = None) -> None:
         self.hpc_driver = hpc_driver
         self.reaction = reaction
         self.molecule = molecule
@@ -36,8 +36,6 @@ class StepRunner:
         if not (molecule and reaction):
             print("Please provide a reaction or a molecule.")
             exit
-        
-        
 
     @staticmethod
     def make_folder(dir_name: str) -> None:
@@ -67,14 +65,12 @@ class StepRunner:
 
     # ---------- OPTIMIZATION STEP ---------- #
     def geometry_optimisation(self,
-                           trial: int = 0,
-                           upper_limit: int = 5,
-                          ) -> bool:
+                              trial: int = 0,
+                              upper_limit: int = 5,
+                              ) -> bool:
         """
         Optimize educt and product with XTB or r2scan-3c. Retries if fails.
         """
-
-
 
         trial += 1
         print(f"[OPT] Trial {trial} for reactant optimisation")
@@ -85,13 +81,9 @@ class StepRunner:
 
         method = self.reaction.educt.method if self.reaction else self.molecule.method
         if "xtb" in method.lower():
-            slurm_params=SLURM_PARAMS_XTB
+            slurm_params = SLURM_PARAMS_XTB
         else:
-            slurm_params=SLURM_PARAMS_LOW_MEM
-
-
-        
- 
+            slurm_params = SLURM_PARAMS_LOW_MEM
 
         if trial == 1:
             self.make_folder('OPT')
@@ -100,13 +92,14 @@ class StepRunner:
                 self.molecule.to_xyz()
             else:
                 self.reaction.educt.to_xyz('educt.xyz')
-                self.reaction.product.to_xyz('product.xyz')   
+                self.reaction.product.to_xyz('product.xyz')
 
         print("Starting reactant optimisation")
         if self.reaction:
             if self.reaction.educt.solvent:
 
-                solvent_formatted = f"ALPB({self.reaction.educt.solvent})" if "xtb" in method.lower() else f"CPCM({self.reaction.educt.solvent})"
+                solvent_formatted = f"ALPB({self.reaction.educt.solvent})" if "xtb" in method.lower(
+                ) else f"CPCM({self.reaction.educt.solvent})"
             job_inputs = {
                 'educt_opt.inp': (
                     f"!{method} {solvent_formatted} opt\n"
@@ -145,42 +138,47 @@ class StepRunner:
 
         # Wait for completion
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(job_ids)) as executor:
-            futures = [executor.submit(self.hpc_driver.check_job_status, jid) for jid in job_ids]
+            futures = [executor.submit(
+                self.hpc_driver.check_job_status, jid) for jid in job_ids]
             statuses = [f.result() for f in futures]
 
         if all(status == 'COMPLETED' for status in statuses):
             if all('HURRAY' in self.grep_output('HURRAY', f.replace('.inp', '.out')) for f in job_inputs.keys()):
                 print("[OPT] Optimisation jobs completed.")
                 if self.reaction:
-                    self.reaction.educt = Molecule.from_xyz('educt_opt.xyz',charge=self.reaction.educt.charge, mult=self.reaction.educt.mult, solvent=self.reaction.educt.solvent,name=self.reaction.educt.name)
-                    self.reaction.product = Molecule.from_xyz('product_opt.xyz',charge=self.reaction.product.charge, mult=self.reaction.product.mult, solvent=self.reaction.product.solvent,name=self.reaction.product.name)
-                    
+                    self.reaction.educt = Molecule.from_xyz('educt_opt.xyz', charge=self.reaction.educt.charge,
+                                                            mult=self.reaction.educt.mult, solvent=self.reaction.educt.solvent, name=self.reaction.educt.name)
+                    self.reaction.product = Molecule.from_xyz('product_opt.xyz', charge=self.reaction.product.charge,
+                                                              mult=self.reaction.product.mult, solvent=self.reaction.product.solvent, name=self.reaction.product.name)
 
                 else:
-                    self.molecule = Molecule.from_xyz(f"{self.molecule.name}_opt.xyz",charge=self.molecule.charge, mult=self.molecule.mult, solvent=self.molecule.solvent,name=self.molecule.name)
+                    self.molecule = Molecule.from_xyz(f"{self.molecule.name}_opt.xyz", charge=self.molecule.charge,
+                                                      mult=self.molecule.mult, solvent=self.molecule.solvent, name=self.molecule.name)
 
-                self.state="OPT_COMPLETED"
+                self.state = "OPT_COMPLETED"
                 os.chdir('..')
                 return True
-                
-                    
-        
+
         print("[OPT] Optimisation jobs failed. Retrying...")
         for jid in job_ids:
             self.hpc_driver.scancel_job(jid)
         time.sleep(RETRY_DELAY)
-        self.hpc_driver.shell_command("rm -rf *.gbw pmix* *densities*  slurm* educt_opt.inp product_opt.inp")
+        self.hpc_driver.shell_command(
+            "rm -rf *.gbw pmix* *densities*  slurm* educt_opt.inp product_opt.inp")
         if self.reaction:
-            self.reaction.educt.to_xyz('educt_opt.xyz',charge=self.reaction.educt.charge, mult=self.reaction.educt.mult, solvent=self.reaction.educt.solvent,name=self.reaction.educt.name)
-            self.reaction.product.to_xyz('product_opt.xyz',charge=self.reaction.product.charge, mult=self.reaction.product.mult, solvent=self.reaction.product.solvent,name=self.reaction.product.name)
+            self.reaction.educt.to_xyz('educt_opt.xyz', charge=self.reaction.educt.charge,
+                                       mult=self.reaction.educt.mult, solvent=self.reaction.educt.solvent, name=self.reaction.educt.name)
+            self.reaction.product.to_xyz('product_opt.xyz', charge=self.reaction.product.charge,
+                                         mult=self.reaction.product.mult, solvent=self.reaction.product.solvent, name=self.reaction.product.name)
         else:
-            self.molecule.to_xyz(f"{self.molecule.name}_opt.xyz",charge=self.molecule.charge, mult=self.molecule.mult, solvent=self.molecule.solvent,name=self.molecule.name)
+            self.molecule.to_xyz(f"{self.molecule.name}_opt.xyz", charge=self.molecule.charge,
+                                 mult=self.molecule.mult, solvent=self.molecule.solvent, name=self.molecule.name)
         return self.geometry_optimisation(trial, upper_limit)
-        
 
     # ---------- FREQUENCY STEP ---------- #
+
     def freq_job(self,
-                mol: Molecule,
+                 mol: Molecule,
                  trial: int = 0,
                  upper_limit: int = MAX_TRIALS,
                  ts: bool = False) -> bool:
@@ -199,11 +197,11 @@ class StepRunner:
             solvent_formatted = f"ALPB({mol.solvent})" if mol.solvent else ""
         else:
             solvent_formatted = f"CPCM({mol.solvent})" if mol.solvent else ""
-        
-        xyz_block=""
-        for atom, coord in zip(mol.atoms,mol.coords):
-            xyz_block+=f"{atom}  {coord[0]:.9f} {coord[1]:.9f} {coord[2]:.9f}"
-          ## iterate over the atmos and coords to get the xyz block
+
+        xyz_block = ""
+        for atom, coord in zip(mol.atoms, mol.coords):
+            xyz_block += f"{atom}  {coord[0]:.9f} {coord[1]:.9f} {coord[2]:.9f}"
+          # iterate over the atmos and coords to get the xyz block
         freq_input = (
             f"! {method} {solvent_formatted}\n"
             f"%pal nprocs {SLURM_PARAMS_HIGH_MEM['nprocs']} end\n"
@@ -213,15 +211,17 @@ class StepRunner:
         )
         with open('freq.inp', 'w') as f:
             f.write(freq_input)
-        
+
         job_id_freq = self.hpc_driver.submit_job("freq.inp", "freq_slurm.out")
-        status_freq = self.hpc_driver.check_job_status(job_id_freq, step='Freq')
+        status_freq = self.hpc_driver.check_job_status(
+            job_id_freq, step='Freq')
 
         if status_freq == 'COMPLETED':
             if self.grep_output('VIBRATIONAL FREQUENCIES', 'freq.out'):
                 print('[FREQ] Calculation completed successfully.')
                 if ts:
-                    output = self.grep_output('**imaginary mode***', 'freq.out')
+                    output = self.grep_output(
+                        '**imaginary mode***', 'freq.out')
                     match = re.search(r'(-?\d+\.\d+)\s*cm\*\*-1', output)
                     if match:
                         imag_freq = float(match.group(1))
@@ -229,7 +229,8 @@ class StepRunner:
                             print('[FREQ] Negative frequency found (TS).')
                             return True
                         else:
-                            print('[FREQ] Negative frequency above threshold, not a TS.')
+                            print(
+                                '[FREQ] Negative frequency above threshold, not a TS.')
                             return False
                     print('[FREQ] No negative frequency found, not a TS.')
                     return False
@@ -237,8 +238,9 @@ class StepRunner:
 
         print('[FREQ] Job failed or no frequencies found. Retrying...')
         self.hpc_driver.scancel_job(job_id_freq)
-        self.hpc_driver.shell_command("rm -rf *.gbw pmix* *densities* freq.inp slurm*")
-        return self.freq_job(self,mol=mol,trial=trial,upper_limit=upper_limit,ts=ts)
+        self.hpc_driver.shell_command(
+            "rm -rf *.gbw pmix* *densities* freq.inp slurm*")
+        return self.freq_job(self, mol=mol, trial=trial, upper_limit=upper_limit, ts=ts)
 
     # ---------- NEB-TS STEP ---------- #
     def neb_ts(self,
@@ -258,16 +260,17 @@ class StepRunner:
             print("Need to reoptimize reactants")
             os.chdir('..')
             self.geometry_optimisation()
-        
 
         trial += 1
-        print(f"[NEB_TS] Trial {trial}, Nimages={self.reaction.nimages}, method={self.reaction.method}, fast={fast}")
+        print(
+            f"[NEB_TS] Trial {trial}, Nimages={self.reaction.nimages}, method={self.reaction.method}, fast={fast}")
         if trial > upper_limit:
             print('[NEB_TS] Too many trials aborting.')
             return False
 
-        if self.state !="OPT_COMPLETED":
-            print("Be sure that educt and product are both optimized with the chosen method")
+        if self.state != "OPT_COMPLETED":
+            print(
+                "Be sure that educt and product are both optimized with the chosen method")
 
         # On first NEB trial, create NEB folder if not existing
         if trial == 1:
@@ -276,21 +279,22 @@ class StepRunner:
             self.reaction.educt.to_xyz("educt.xyz")
             self.reaction.product.to_xyz("product.xyz")
 
-            geom_block=""
+            geom_block = ""
 
         if "xtb" in self.reaction.method.lower():
             with open("product.xyz") as f:
                 n_atoms = int(f.readline().strip())
             maxiter = n_atoms * 4
             geom_block = f"%geom\n Calc_Hess true\n Recalc_Hess 1\n MaxIter={maxiter} end\n"
-        neb_block="Fast-NEB-TS" if fast else "NEB-TS"
+        neb_block = "Fast-NEB-TS" if fast else "NEB-TS"
         guess_block = ""
         if os.path.exists("guess.xyz"):
             guess_block = ' TS "guess.xyz"\n'
-    ### formate solvent block
+    # formate solvent block
 
         if self.reaction.educt.solvent:
-            solvent_formatted = f"ALPB({self.reaction.educt.solvent})" if "xtb" in self.reaction.method.lower() else f"CPCM({self.reaction.educt.solvent})"
+            solvent_formatted = f"ALPB({self.reaction.educt.solvent})" if "xtb" in self.reaction.method.lower(
+            ) else f"CPCM({self.reaction.educt.solvent})"
         neb_input = (
             f"! {self.reaction.method} {neb_block} {solvent_formatted}\n"
             f"{geom_block}"
@@ -304,140 +308,139 @@ class StepRunner:
         with open(neb_input_name, 'w') as f:
             f.write(neb_input)
 
-        job_id = self.hpc_driver.submit_job(neb_input_name, "NEB_TS_slurm.out", walltime="72")
+        job_id = self.hpc_driver.submit_job(
+            neb_input_name, "NEB_TS_slurm.out", walltime="72")
         status = self.hpc_driver.check_job_status(job_id, step="NEB_TS")
 
         out_name = neb_input_name.rsplit(".", 1)[0] + ".out"
         if status == 'COMPLETED' and 'HURRAY' in self.grep_output('HURRAY', out_name):
-            print('[NEB_TS] NEB converged successfully. Checking frequency of TS structure...')
+            print(
+                '[NEB_TS] NEB converged successfully. Checking frequency of TS structure...')
             # Typically the NEB TS is in something like: neb-TS_NEB-TS_converged.xyz
             ts_xyz = neb_input_name.rsplit('.', 1)[0] + "_NEB-TS_converged.xyz"
             time.sleep(RETRY_DELAY)
 
-            ## TODO we need a retry mechanism here if ssubo is to slow. 
+            # TODO we need a retry mechanism here if ssubo is to slow.
             if os.path.exists(ts_xyz):
-                potential_ts = Molecule.from_xyz(ts_xyz,charge=self.reaction.charge, mult=self.reaction.mult, solvent=self.reaction.solvent,name="ts")
+                potential_ts = Molecule.from_xyz(
+                    ts_xyz, charge=self.reaction.charge, mult=self.reaction.mult, solvent=self.reaction.solvent, name="ts")
                 freq_success = self.freq_job(potential_ts, ts=True)
                 if freq_success:
                     # Copy the final TS structure to a known file
-                    self.reaction.transition_state=potential_ts
-                    
+                    self.reaction.transition_state = potential_ts
+
                     os.chdir('..')
                     return True
                 else:
                     print("TS has no significant imag freq Retry with refined method")
-                    if not self.handle_failed_imagfreq(trial=0,upper_limit=upper_limit,fast=fast):
+                    if not self.handle_failed_imagfreq(trial=0, upper_limit=upper_limit, fast=fast):
                         os.chdir("..")
                         return False
                     else:
-                        return True  ## already changed dir 
-       
+                        return True  # already changed dir
 
         elif self.grep_output('ORCA TERMINATED NORMALLY', f'{neb_input_name.rsplit(".", 1)[0]}.out'):
             print("ORCA has terminated normally, optimisation did not converge.")
             print("Restart neb with more precise settings, use ")
             self.hpc_driver.scancel_job(job_id)
             # If needed, remove partial files or rename them
-            self.hpc_driver.shell_command("rm -rf *.gbw pmix* *densities* freq.inp slurm* *neb*.inp")
-            if not self.handle_unconverged_neb(trial=0,uper_limit=upper_limit,fast=fast):
+            self.hpc_driver.shell_command(
+                "rm -rf *.gbw pmix* *densities* freq.inp slurm* *neb*.inp")
+            if not self.handle_unconverged_neb(trial=0, uper_limit=upper_limit, fast=fast):
                 os.chdir("..")
                 return False
             else:
                 return True
         print("There was an error during the run, Restart with the same settings")
-        return self.neb_ts(trial=trial,upper_limit=upper_limit,fast=fast,switch=False)
+        return self.neb_ts(trial=trial, upper_limit=upper_limit, fast=fast, switch=False)
 
-    def handle_unconverged_neb(self,trial,uper_limit,fast):
+    def handle_unconverged_neb(self, trial, uper_limit, fast):
         if "xtb" in self.reaction.method.lower():
             print("Restating with FAST-NEB r2scan-3c")
-            self.reaction.method="r2scan-3c"
-            self.reaction.educt.method="r2scan-3c"
-            self.reaction.product.method="r2scan-3c"
-            return self.neb_ts(trial=0,upper_limit=uper_limit,fast=True,switch=True)
+            self.reaction.method = "r2scan-3c"
+            self.reaction.educt.method = "r2scan-3c"
+            self.reaction.product.method = "r2scan-3c"
+            return self.neb_ts(trial=0, upper_limit=uper_limit, fast=True, switch=True)
         elif fast:
             print("Restarting with NEB-TS r2scan-3c")
-            return self.neb_ts(trial=0,upper_limit=uper_limit,fast=False,switch=False)
+            return self.neb_ts(trial=0, upper_limit=uper_limit, fast=False, switch=False)
         else:
             return self.neb_ci()
 
-
-    def handle_failed_imagfreq(self,trial,upper_limit,fast):
-
+    def handle_failed_imagfreq(self, trial, upper_limit, fast):
         """
        Handles when NEB-TS finished but no significant imag freq is found.
         """
 
-        ## check what method was used
+        # check what method was used
 
         if "xtb" in self.reaction.method.lower():
             print("No significant imaginary frequency found. Retrying with r2scan-3c.")
             self.reaction.method = "r2scan-3c"
-            self.reaction.educt.method="r2scan-3c"
-            self.reaction.product.method="r2scan-3c"
-            return self.neb_ts(trial=0,upper_limit=upper_limit,fast=True,switch=True)
+            self.reaction.educt.method = "r2scan-3c"
+            self.reaction.product.method = "r2scan-3c"
+            return self.neb_ts(trial=0, upper_limit=upper_limit, fast=True, switch=True)
         elif fast:
             print("No significant imaginary frequency found. Retrying with fast=False.")
-            return self.neb_ts(trial=0,upper_limit=upper_limit,fast=False)
+            return self.neb_ts(trial=0, upper_limit=upper_limit, fast=False)
         else:
             print("No significant imag freq found.")
             print("Do a neb_ci run to try to get TS guess.")
             return self.neb_ci()
-            
 
     # ---------- NEB-CI STEP ---------- #
-    def neb_ci(self,trial=0,upper_limit:int =5,) -> bool:
-           
-           
-           
-           """
-           Performs NEB-CI (Climbing Image) calculation. 
-           Assums that the educt and products are already optimized with the same method
-           """
-           trial += 1
-           print(f"[NEB_CI] Trial {trial}, Nimages={self.reaction.nimages}, Method={self.reaction.method}")
-           if trial > upper_limit:
-               print('[NEB_CI] Too many trials aborting.')
-               return False
+    def neb_ci(self, trial=0, upper_limit: int = 5,) -> bool:
+        """
+        Performs NEB-CI (Climbing Image) calculation. 
+        Assums that the educt and products are already optimized with the same method
+        """
+        trial += 1
+        print(
+            f"[NEB_CI] Trial {trial}, Nimages={self.reaction.nimages}, Method={self.reaction.method}")
+        if trial > upper_limit:
+            print('[NEB_CI] Too many trials aborting.')
+            return False
 
-           if trial == 1:
-               self.make_folder("NEB_CI")
-               os.chdir("NEB_CI")
-               self.reaction.educt.to_xyz("educt.xyz")
-               self.reaction.product.to_xyz("product.xyz")
-           solvent_formatted=""
-           if self.reaction.educt.solvent:
-               
-                solvent_foramtted = f"ALPB({self.reaction.educt.solvent})" if "xtb" in self.reaction.method.lower() else f"CPCM({self.reaction.educt.solvent})"
-               
+        if trial == 1:
+            self.make_folder("NEB_CI")
+            os.chdir("NEB_CI")
+            self.reaction.educt.to_xyz("educt.xyz")
+            self.reaction.product.to_xyz("product.xyz")
+        solvent_formatted = ""
+        if self.reaction.educt.solvent:
 
+            solvent_foramtted = f"ALPB({self.reaction.educt.solvent})" if "xtb" in self.reaction.method.lower(
+            ) else f"CPCM({self.reaction.educt.solvent})"
 
+        neb_input = (
+            f"!NEB-CI {solvent_formatted} {self.reaction.method}\n"
+            f"%pal nprocs {SLURM_PARAMS_LOW_MEM['nprocs']} end\n"
+            f"%maxcore {SLURM_PARAMS_LOW_MEM['maxcore']}\n"
+            f"%neb\n  Product \"product.xyz\"\n  NImages {self.reaction.nimages} \nend\n"
+            f"*xyzfile {self.reaction.charge} {self.reaction.mult} educt.xyz\n"
+        )
 
-           neb_input = (
-               f"!NEB-CI {solvent_formatted} {self.reaction.method}\n"
-               f"%pal nprocs {SLURM_PARAMS_LOW_MEM['nprocs']} end\n"
-               f"%maxcore {SLURM_PARAMS_LOW_MEM['maxcore']}\n"
-               f"%neb\n  Product \"product.xyz\"\n  NImages {self.reaction.nimages} \nend\n"
-               f"*xyzfile {self.reaction.charge} {self.reaction.mult} educt.xyz\n"
-           )
+        with open('neb-CI.inp', 'w') as f:
+            f.write(neb_input)
 
-           with open('neb-CI.inp', 'w') as f:
-               f.write(neb_input)
+        job_id = self.hpc_driver.submit_job(
+            "neb-CI.inp", "neb-ci_slurm.out", walltime="72")
+        status = self.hpc_driver.check_job_status(job_id, step="NEB-CI")
 
-           job_id = self.hpc_driver.submit_job("neb-CI.inp", "neb-ci_slurm.out", walltime="72")
-           status = self.hpc_driver.check_job_status(job_id, step="NEB-CI")
+        if status == 'COMPLETED' and 'H U R R A Y' in self.grep_output('H U R R A Y', 'neb-CI.out'):
+            print('[NEB_CI] Completed successfully.')
+            self.reaction.transition_state = Molecule.from_xyz(
+                "neb-CI.xyz", charge=self.reaction.educt.charge, mult=self.reaction.educt.mult, solvent=self.reaction.educt.solvent, method="r2scan-3c")
 
-           if status == 'COMPLETED' and 'H U R R A Y' in self.grep_output('H U R R A Y', 'neb-CI.out'):
-               print('[NEB_CI] Completed successfully.')
-               self.reaction.transition_state=Molecule.from_xyz("neb-CI.xyz",charge=self.reaction.educt.charge,mult=self.reaction.educt.mult,solvent=self.reaction.educt.solvent,method="r2scan-3c")
-               
-               os.chdir('..')
-               return True
-           else:
-               print('[NEB_CI] Job failed or did not converge. Retrying...')
-               self.hpc_driver.scancel_job(job_id)
-               time.sleep(RETRY_DELAY)
-               self.hpc_driver.shell_command("rm -rf *.gbw pmix* *densities* freq.inp slurm* neb*im* *neb*.inp")
-               return self.neb_ci(trial,upper_limit=upper_limit)
+            os.chdir('..')
+            return True
+        else:
+            print('[NEB_CI] Job failed or did not converge. Retrying...')
+            self.hpc_driver.scancel_job(job_id)
+            time.sleep(RETRY_DELAY)
+            self.hpc_driver.shell_command(
+                "rm -rf *.gbw pmix* *densities* freq.inp slurm* neb*im* *neb*.inp")
+            return self.neb_ci(trial, upper_limit=upper_limit)
 
     # ---------- TS Optimization STEP ---------- #
     def ts_opt(self,
@@ -457,8 +460,6 @@ class StepRunner:
             self.make_folder("TS")
             os.chdir("TS")
             self.reaction.transition_state.to_xyz("ts_guess.xyz")
-            
-            
 
         # Always run freq job on the guess to ensure negative frequency
         if not self.freq_job(self.reaction.transition_state, ts=True):
@@ -478,7 +479,8 @@ class StepRunner:
         with open("TS_opt.inp", "w") as f:
             f.write(ts_input)
 
-        job_id = self.hpc_driver.submit_job("TS_opt.inp", "TS_opt_slurm.out", walltime="48")
+        job_id = self.hpc_driver.submit_job(
+            "TS_opt.inp", "TS_opt_slurm.out", walltime="48")
         status = self.hpc_driver.check_job_status(job_id, step="TS_OPT")
 
         if status == 'COMPLETED' and 'HURRAY' in self.grep_output('HURRAY', 'TS_opt.out'):
@@ -489,11 +491,12 @@ class StepRunner:
         print("[TS_OPT] TS optimization failed. Retrying...")
         self.hpc_driver.scancel_job(job_id)
         time.sleep(RETRY_DELAY)
-        self.hpc_driver.shell_command("rm -rf *.gbw pmix* *densities* freq.inp slurm* *.hess")
+        self.hpc_driver.shell_command(
+            "rm -rf *.gbw pmix* *densities* freq.inp slurm* *.hess")
         if os.path.exists('TS_opt.xyz'):
             os.rename('TS_opt.xyz', 'ts_guess.xyz')
 
-        return self.ts_opt(trial=trial,upper_limit=upper_limit)
+        return self.ts_opt(trial=trial, upper_limit=upper_limit)
 
     def irc_job(self,
                 trial: int = 0,
@@ -514,11 +517,8 @@ class StepRunner:
             os.chdir("IRC")
             self.reaction.transition_state.to_xyz("TS_opt.xyz")
 
-            
-            
-
             # Run freq job to ensure negative frequency for TS
-            if not self.freq_job(mol=self.reaction.transition_state,ts=True):
+            if not self.freq_job(mol=self.reaction.transition_state, ts=True):
                 print("[IRC] TS frequency job invalid. Aborting IRC.")
                 return False
 
@@ -543,7 +543,8 @@ class StepRunner:
             os.chdir('..')
             return True
 
-        print("[IRC] IRC job did not converge or failed. Attempting restart with more steps.")
+        print(
+            "[IRC] IRC job did not converge or failed. Attempting restart with more steps.")
         self.hpc_driver.scancel_job(job_id)
         if 'ORCA TERMINATED NORMALLY' in self.grep_output('ORCA TERMINATED NORMALLY', 'IRC.out'):
             if maxiter < 100:
@@ -553,68 +554,93 @@ class StepRunner:
                 return False
 
         time.sleep(RETRY_DELAY)
-        self.hpc_driver.shell_command("rm -rf *.gbw pmix* *densities* IRC.inp slurm*")
-        return self.irc_job(trial=trial,upper_limit=upper_limit,maxiter=maxiter)
+        self.hpc_driver.shell_command(
+            "rm -rf *.gbw pmix* *densities* IRC.inp slurm*")
+        return self.irc_job(trial=trial, upper_limit=upper_limit, maxiter=maxiter)
 
-    # ---------- SINGLE POINT (SP) STEP ---------- #
-"""
+    # ---------- SINGLE POINT (SP) STEP ----------
 
-    ###TODO continue here
     def sp_calc(self,
                 trial: int = 0,
                 upper_limit: int = 5,
-) -> bool:
-        
-        
-
-
-
-        
+                ) -> bool:
+        """
         Runs a high-level single-point calculation on a TS or other structure (e.g., TS_opt.xyz).
-        
-        
+
+        """
+
+        is_reaction = False
+        solvent_formatted = ""
+        method = self.reaction.sp_method if self.reaction else self.molecule.sp_method
+        charge = self.reaction.transition_state.charge if self.reaction else self.molecule.charge
+        mult = self.reaction.transition_state.mult if self.reaction else self.molecule.mult
+
         trial += 1
-        print(f"[SP] Trial {trial} with {method}/{basis}")
+        print(f"[SP] Trial {trial} ")
         if trial > upper_limit:
             print("[SP] Too many trials, aborting.")
             return False
 
         if trial == 1:
             self.make_folder("SP")
-            if not os.path.exists("TS/TS_opt.xyz"):
-                print("[SP] TS_opt.xyz not found. Exiting.")
-                return False
-            self.hpc_driver.shell_command("cp TS/TS_opt.xyz SP/")
             os.chdir("SP")
+            if self.reaction:
+                is_reaction = True
+                self.reaction.educt.to_xyz("educt.xyz")
 
-        solvent_formatted = f"CPCM({solvent})" if solvent else ""
+                self.reaction.transition_state.to_xyz("TS_opt.xyz")
+                self.reaction.product.to_xyz("product.xyz")
+                solvent_formatted = f"CPCM({self.reaction.educt.solvent})" if self.reaction.educt.solvent else ""
+            else:
+                self.molecule.to_xyz()
+                solvent_formatted = f"CPCM({self.molecule.solvent})" if self.molecule.solvent else ""
 
-        sp_input = (
-            f"!{method} {basis} {solvent_formatted} verytightscf defgrid3 d4\n"
-            f"%pal nprocs {SLURM_PARAMS_LOW_MEM['nprocs']} end\n"
-            f"%maxcore {SLURM_PARAMS_LOW_MEM['maxcore']}\n"
-            f"*xyzfile {charge} {mult} TS_opt.xyz\n"
-        )
+        job_ids = []
+        if is_reaction:
+            for mol in ["TS_opt", "educt", "product"]:
+                sp_input = (
+                    f"!{method} {solvent_formatted} verytightscf defgrid3 \n"
+                    f"%pal nprocs {SLURM_PARAMS_LOW_MEM['nprocs']} end\n"
+                    f"%maxcore {SLURM_PARAMS_LOW_MEM['maxcore']}\n"
+                    f"*xyzfile {charge} {mult} {mol}.xyz\n"
+                )
+                with open(f"{mol}_sp.inp", "w") as f:
+                    f.write(sp_input)
+                job_ids.append(self.hpc_driver.submit_job(
+                    f"{mol}_sp.inp", f"{mol}_sp_slurm.out"))
+        else:
+            sp_input = (
+                f"!{method} {solvent_formatted} verytightscf defgrid3 \n"
+                f"%pal nprocs {SLURM_PARAMS_LOW_MEM['nprocs']} end\n"
+                f"%maxcore {SLURM_PARAMS_LOW_MEM['maxcore']}\n"
+                f"*xyzfile {charge} {mult} {self.molecule.name}.xyz \n"
+            )
+            with open("SP.inp", "w") as f:
+                f.write(sp_input)
+            job_ids.append(self.hpc_driver.submit_job(
+                "SP.inp", "SP_slurm.out"))
 
-        with open("SP.inp", "w") as f:
-            f.write(sp_input)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=len(job_ids)) as executor:
+                futures = [executor.submit(
+                    self.hpc_driver.check_job_status, jid) for jid in job_ids]
+                statuses = [f.result() for f in futures]
 
-        job_id = self.hpc_driver.submit_job("SP.inp", "SP_slurm.out")
-        status = self.hpc_driver.check_job_status(job_id, step="SP")
-
-        # Some users look for "FINAL SINGLE POINT ENERGY" in SP.out 
-        # or a "HURRAY" in ORCA's final lines. Adjust accordingly.
-        if status == 'COMPLETED' and "HURRAY" in self.grep_output("HURRAY", "SP.out"):
-            print("[SP] Single point completed successfully.")
-            os.chdir('..')
-            return True
+        if all(status == 'COMPLETED' for status in statuses):
+            if is_reaction:
+                if all("FINAL SINGLE POINT ENERGY" in self.grep_output("FINAL SINGLE POINT ENERGY", f"{mol}_sp.out") for mol in ["TS_opt", "educt", "product"]):
+                    print("[SP] Single point completed successfully.")
+                    os.chdir('..')
+                    return True
+            else:
+                if "FINAL SINGLE POINT ENERGY" in self.grep_output("FINAL SINGLE POINT ENERGY", "SP.out"):
+                    print("[SP] Single point completed successfully.")
+                    os.chdir('..')
+                    return True
 
         print("[SP] Failed or not converged. Retrying...")
-        self.hpc_driver.scancel_job(job_id)
+        for jid in job_ids:
+            self.hpc_driver.scancel_job(jid)
         time.sleep(RETRY_DELAY)
-        self.hpc_driver.shell_command("rm -rf *.gbw pmix* *densities* SP.inp slurm*")
-        return self.sp_calc(charge, mult, trial, upper_limit, solvent, method, basis)
-"""
-
-
-   
+        self.hpc_driver.shell_command(
+            "rm -rf *.gbw pmix* *densities* SP.inp slurm*")
+        return self.sp_calc(trial=trial, upper_limit=upper_limit)

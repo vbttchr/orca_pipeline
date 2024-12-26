@@ -24,7 +24,7 @@ class Molecule:
 
     """
 
-    def __init__(self, name:str, atoms: List[str], coords: np.ndarray,mult:int,charge:int,solvent:str=None,method:str="r2scan-3c") -> None:
+    def __init__(self, name:str, atoms: List[str], coords: np.ndarray,mult:int,charge:int,solvent:str=None,method:str="r2scan-3c",sp_method:str="r2scanh def2-qzvpp d4") -> None:
         self.name = name
         self.atoms = atoms
         self.coords = coords
@@ -32,6 +32,7 @@ class Molecule:
         self.charge = charge
         self.solvent = solvent
         self.method = method
+        self.sp_method=sp_method
 
 
        
@@ -90,12 +91,13 @@ class Reaction:
     Represents a elementary step in a reaction.
     """
 
-    def __init__(self, educt:Molecule,product:Molecule,transitions_state:Molecule=None,nimages:int=16,method:str="r2scan-3c") -> None:
+    def __init__(self, educt:Molecule,product:Molecule,transitions_state:Molecule=None,nimages:int=16,method:str="r2scan-3c",sp_method="r2scanh def2-qzvpp d4") -> None:
         self.educt = educt
         self.product = product
         self.transition_state = transitions_state
         self.nimages = nimages
         self.method = method
+        self.sp_method=sp_method
 
 
         if educt.charge != product.charge:
