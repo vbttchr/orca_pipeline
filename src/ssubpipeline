@@ -1,15 +1,11 @@
 #!/bin/bash
 
-usage() {
-    echo "Usage: $0 config_file"
-    exit 1
-}
+
 config_file=""
 
 if [[ "$#" -ne 1 ]]; then
     
     echo " No config given, use default"
-    usage
     
 
 else
