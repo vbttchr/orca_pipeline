@@ -244,7 +244,7 @@ class StepRunner:
     def neb_ts(self,
                trial=0,
                upper_limit: int = 5,
-               fast=True,
+               fast=False,
                switch=False) -> bool:
         """
         Performs a NEB-TS calculation (optionally FAST) with either XTB or r2scan-3c.
@@ -557,20 +557,22 @@ class StepRunner:
         return self.irc_job(trial=trial,upper_limit=upper_limit,maxiter=maxiter)
 
     # ---------- SINGLE POINT (SP) STEP ---------- #
-
+"""
 
     ###TODO continue here
     def sp_calc(self,
-                charge: int = 0,
-                mult: int = 1,
                 trial: int = 0,
                 upper_limit: int = 5,
-                solvent: str = "",
-                method: str = "r2scanh",
-                basis: str = "def2-QZVPP") -> bool:
-        """
+) -> bool:
+        
+        
+
+
+
+        
         Runs a high-level single-point calculation on a TS or other structure (e.g., TS_opt.xyz).
-        """
+        
+        
         trial += 1
         print(f"[SP] Trial {trial} with {method}/{basis}")
         if trial > upper_limit:
@@ -612,7 +614,7 @@ class StepRunner:
         time.sleep(RETRY_DELAY)
         self.hpc_driver.shell_command("rm -rf *.gbw pmix* *densities* SP.inp slurm*")
         return self.sp_calc(charge, mult, trial, upper_limit, solvent, method, basis)
-
+"""
 
 
    

@@ -98,18 +98,18 @@ class PipelineManager:
         """
         Maps step strings to methods in StepRunner.
         """
+        fast=False
+        if "NEB" in step:
+            fast= False if "xtb" in self.step_runner.reaction.method.lower() else True
         steps_mapping = {
-            "OPT_XTB": lambda: self.step_runner.optimise_reactants(charge, mult, 0, MAX_TRIALS, solvent, xtb=True),
-            "OPT_DFT": lambda: self.step_runner.optimise_reactants(charge, mult, 0, MAX_TRIALS, solvent, xtb=False),
-            "NEB_TS_XTB": lambda: self.step_runner.neb_ts(charge, mult, 0, Nimages, MAX_TRIALS, xtb=True, fast=False, solvent=solvent),
-            "FAST_NEB_TS_XTB": lambda: self.step_runner.neb_ts(charge, mult, 0, Nimages, MAX_TRIALS, xtb=True, fast=True, solvent=solvent),
-            "NEB_TS_DFT": lambda: self.step_runner.neb_ts(charge, mult, 0, Nimages, MAX_TRIALS, xtb=False, fast=False, solvent=solvent),
-            "FAST_NEB_TS_DFT": lambda: self.step_runner.neb_ts(charge, mult, 0, Nimages, MAX_TRIALS, xtb=False, fast=True, solvent=solvent),
-            "NEB_CI_XTB": lambda: self.step_runner.neb_ci(charge, mult, 0, Nimages, MAX_TRIALS, xtb=True, solvent=solvent),
-            "NEB_CI_DFT": lambda: self.step_runner.neb_ci(charge, mult, 0, Nimages, MAX_TRIALS, xtb=False, solvent=solvent),
-            "TS": lambda: self.step_runner.ts_opt(charge, mult, 0, MAX_TRIALS, solvent),
-            "IRC": lambda: self.step_runner.irc_job(charge, mult, 0, MAX_TRIALS, solvent),
-            "SP": lambda: self.step_runner.sp_calc(charge, mult, 0, MAX_TRIALS, solvent),
+            "OPT": lambda: self.step_runner.geometry_optimisation(trial=0,upper_limit=MAX_TRIALS),
+
+            "NEB_TS": lambda: self.step_runner.neb_ts(trial=0,upper_limit=MAX_TRIALS,fast=fast,switch=False),
+
+            "NEB_CI": lambda: self.step_runner.neb_ci(trial=0,upper_limit=MAX_TRIALS),
+            "TS": lambda: self.step_runner.ts_opt(trial=0,upper_limit=MAX_TRIALS),
+            "IRC": lambda: self.step_runner.irc_job(trial=0,upper_limit=MAX_TRIALS),
+            "SP": lambda: self.step_runner.sp_calc(),
         }
 
         step_function = steps_mapping.get(step)
