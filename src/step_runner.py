@@ -138,6 +138,7 @@ class StepRunner:
             job_ids.append(job_id)
 
         # Wait for completion
+        statuses = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(job_ids)) as executor:
             futures = [executor.submit(
                 self.hpc_driver.check_job_status, jid) for jid in job_ids]
@@ -167,13 +168,12 @@ class StepRunner:
         self.hpc_driver.shell_command(
             "rm -rf *.gbw pmix* *densities*  slurm* educt_opt.inp product_opt.inp")
         if self.reaction:
-            self.reaction.educt.to_xyz('educt_opt.xyz', charge=self.reaction.educt.charge,
-                                       mult=self.reaction.educt.mult, solvent=self.reaction.educt.solvent, name=self.reaction.educt.name)
-            self.reaction.product.to_xyz('product_opt.xyz', charge=self.reaction.product.charge,
-                                         mult=self.reaction.product.mult, solvent=self.reaction.product.solvent, name=self.reaction.product.name)
+            self.reaction.educt.from_xyz('educt_opt.xyz', charge=self.reaction.educt.charge,
+                                         mult=self.reaction.educt.mult, solvent=self.reaction.educt.solvent, name=self.reaction.educt.name)
+            self.reaction.product.from_xyz('product_opt.xyz', charge=self.reaction.product.charge,
+                                           mult=self.reaction.product.mult, solvent=self.reaction.product.solvent, name=self.reaction.product.name)
         else:
-            self.molecule.to_xyz(f"{self.molecule.name}_opt.xyz", charge=self.molecule.charge,
-                                 mult=self.molecule.mult, solvent=self.molecule.solvent, name=self.molecule.name)
+            self.molecule.to_xyz(f"{self.molecule.name}_opt.xyz")
         return self.geometry_optimisation(trial, upper_limit)
 
     # ---------- FREQUENCY STEP ---------- #
