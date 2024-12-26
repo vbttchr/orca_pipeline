@@ -86,7 +86,7 @@ def main() -> None:
     charge = config.get('charge', 0)
     mult = config.get('mult', 1)
     method = config.get('method', 'r2scan-3c')
-    coords = config.get('coords', "educt.xyz", "product.xyz")
+    coords = config.get('coords', ["educt.xyz", "product.xyz"])
     solvent = config.get('solvent', None)
     Nimages = config.get('Nimages', 16)
     steps = parse_steps(config.get('steps', DEFAULT_STEPS))
