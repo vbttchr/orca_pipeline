@@ -334,6 +334,12 @@ class StepRunner:
                     return True
                 else:
                     print("TS has no significant imag freq Retry with refined method")
+                    self.hpc_driver.scancel_job(job_id)
+                    time.sleep(RETRY_DELAY)
+                    self.hpc_driver.shell_command(
+                        "rm -rf *.gbw pmix* *densities* freq.inp slurm* *neb*.inp")
+                    
+
                     if not self.handle_failed_imagfreq(trial=0, upper_limit=upper_limit, fast=fast):
                         os.chdir("..")
                         return False
@@ -353,6 +359,11 @@ class StepRunner:
             else:
                 return True
         print("There was an error during the run, Restart with the same settings")
+        self.hpc_driver.scancel_job(job_id)
+        time.sleep(RETRY_DELAY)
+        self.hpc_driver.shell_command(
+            "rm -rf *.gbw pmix* *densities* freq.inp slurm* *neb*.inp")
+        
         return self.neb_ts(trial=trial, upper_limit=upper_limit, fast=fast, switch=False)
 
     def handle_unconverged_neb(self, trial, uper_limit, fast):
