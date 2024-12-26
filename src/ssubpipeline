@@ -32,7 +32,7 @@ cp /cluster/home/jlandis/orca_pipeline/src/chemistry.py "$current_dir"
 job_name="Pipeline"
 output_file="slurm-%j.out"
 file="run_pipeline.py"
-
+python_output="pipeline_output.log" 
 
 
 # Submit job to SLURM
@@ -46,5 +46,5 @@ sbatch --job-name="$job_name" --output="$output_file" <<EOL
 #SBATCH --time=24:00:00
 
 module load orca
-python3 $file  $config_file
+python3 $file  $config_file > $python_output 2>&1 
 EOL
