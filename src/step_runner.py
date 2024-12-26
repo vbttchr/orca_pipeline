@@ -80,6 +80,7 @@ class StepRunner:
             return False
 
         method = self.reaction.educt.method if self.reaction else self.molecule.method
+        solvent_formatted = ""
         if "xtb" in method.lower():
             slurm_params = SLURM_PARAMS_XTB
         else:
