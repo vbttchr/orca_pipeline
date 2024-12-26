@@ -37,7 +37,7 @@ sbatch --job-name="$job_name" --output="$output_file" <<EOL
 #SBATCH --job-name=$job_name
 #SBATCH --output=$output_file
 #SBATCH -n 1
-#SBATCH --mem=16G
+#SBATCH --mem-per-cpu=1G
 #SBATCH --time=24:00:00
 
 
