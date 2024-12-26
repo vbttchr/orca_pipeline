@@ -1,13 +1,25 @@
 #!/bin/bash
 
 usage() {
-    echo "Usage: $0 [-n job_name] [-o output_file] [-f file] [-c charge] [-m mult] [-i images] [-s solvent] [--restart] [--steps steps]"
+    echo "Usage: $0 config_file"
     exit 1
 }
+config_file=""
+
+if [[ "$#" -ne 1 ]]; then
+    
+    echo " No config given, use default"
+    usage
+    
+
+else
+    config_file="$1"
+fi
+
 
 current_dir=$(pwd)
 
-echo $current_dir
+echo "$current_dir"
 
 cp /cluster/home/jlandis/orca_pipeline/src/run_pipeline.py "$current_dir"
 cp /cluster/home/jlandis/orca_pipeline/src/hpc_driver.py "$current_dir"
@@ -15,45 +27,24 @@ cp /cluster/home/jlandis/orca_pipeline/src/step_runner.py "$current_dir"
 cp /cluster/home/jlandis/orca_pipeline/src/pipeline_manager.py "$current_dir"
 cp /cluster/home/jlandis/orca_pipeline/src/constants.py "$current_dir" 
 cp /cluster/home/jlandis/orca_pipeline/src/chemistry.py "$current_dir"
+
 # Default values
 job_name="Pipeline"
 output_file="slurm-%j.out"
-file="run_pipeline.py"    
-charge=0
-mult=1
-images=16
-solvent=""
-restart=False
-steps="OPT_XTB,NEB_TS_XTB,TS,IRC"
+file="run_pipeline.py"
 
-# Parse options
-while [[ "$#" -gt 0 ]]; do
-    case $1 in
-        -n) job_name="$2"; shift ;;
-        -o) output_file="$2"; shift ;;
-        -f) file="$2"; shift ;;          
-        -c) charge="$2"; shift ;;
-        -m) mult="$2"; shift ;;
-        -i) images="$2"; shift ;;
-        -s) solvent="$2"; shift ;;
-        --restart) restart=true ;;
-        --steps) steps="$2"; shift ;;
-        *) usage ;;
-    esac
-    shift
-done
 
-# Submit the SLURM job
-sbatch --job-name="$job_name" --output="$output_file"  --time=216:00:00 --ntasks=1 --mem-per-cpu=1G <<EOF
+
+# Submit job to SLURM
+sbatch --job-name="$job_name" --output="$output_file" <<EOL
 #!/bin/bash
+#SBATCH --job-name=$job_name
+#SBATCH --output=$output_file
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=16G
+#SBATCH --time=24:00:00
 
-cd $current_dir
-
-python3 -u $file \
-    --charge $charge \
-    --mult $mult \
-    --solvent "$solvent" \
-    --Nimages $images \
-    --restart $restart \
-    --steps $steps > run.out 2> run.err
-EOF
+module load orca
+python3 $file  $config_file
+EOL
