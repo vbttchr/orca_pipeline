@@ -106,11 +106,11 @@ def main() -> None:
     elif len(coords) == 2:
 
         reaction = Reaction.from_xyz(
-            educt=coords[0], product=coords[1], transitions_state=None, nimages=Nimages, method=method)
+            educt_filepath=coords[0], product_filepath=coords[1], transition_state_filepath=None, nimages=Nimages, method=method, charge=charge, mult=mult, solvent=solvent)  # Reaction
 
     elif len(coords) == 3:
         reaction = Reaction.from_xyz(
-            educt=coords[0], product=coords[1], transition_state_filepath=coords[2], nimages=Nimages)  # Reaction
+            educt_filepath=coords[0], product_filepath=coords[1], transition_state_filepath=coords[2], nimages=Nimages, method=method, charge=charge, mult=mult, solvent=solvent)  # Reaction  # Reaction
 
     hpc_driver = HPCDriver()
     step_runner = StepRunner(hpc_driver, reaction=reaction, molecule=mol)
