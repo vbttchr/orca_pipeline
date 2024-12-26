@@ -302,7 +302,7 @@ class StepRunner:
             f"%pal nprocs {SLURM_PARAMS_LOW_MEM['nprocs']} end\n"
             f"%maxcore {SLURM_PARAMS_LOW_MEM['maxcore']}\n"
             f"%neb\n   Product \"product.xyz\"\n   NImages {self.reaction.nimages}\n   {guess_block}end\n"
-            f"*xyzfile {self.reaction.charge} {self.reaction.mult} educt.xyz\n"
+            f"*xyzfile {self.reaction.educt.charge} {self.reaction.educt.mult} educt.xyz\n"
         )
 
         neb_input_name = "neb-fast-TS.inp" if fast else "neb-TS.inp"
