@@ -69,6 +69,8 @@ def parse_steps(steps_str: str) -> List[str]:
     """
     Parses comma-separated steps into a list.
     """
+    if isinstance(steps_str, list):
+        return steps_str
     return steps_str.split(',')
 
 
