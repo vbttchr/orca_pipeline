@@ -291,8 +291,8 @@ class StepRunner:
         guess_block = ""
         if os.path.exists("guess.xyz"):
             guess_block = ' TS "guess.xyz"\n'
-    # formate solvent block
-
+    
+        solvent_formatted = ""
         if self.reaction.educt.solvent:
             solvent_formatted = f"ALPB({self.reaction.educt.solvent})" if "xtb" in self.reaction.method.lower(
             ) else f"CPCM({self.reaction.educt.solvent})"
