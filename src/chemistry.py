@@ -9,12 +9,34 @@ def read_xyz(filepath: str) -> Tuple[List[str], np.ndarray]:
     """
     atoms = []
     coords = []
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"XYZ file not found: {filepath}")
+
     with open(filepath, 'r') as file:
         lines = file.readlines()
-        for line in lines[2:]:  # Skip the first two lines (header)
-            parts = line.split()
-            atoms.append(parts[0])
-            coords.append([float(parts[1]), float(parts[2]), float(parts[3])])
+        if len(lines) < 3:
+            raise ValueError(
+                f"XYZ file {filepath} is too short to contain atomic data.")
+
+        # Skip the first two lines (header)
+        for idx, line in enumerate(lines[2:], start=3):
+            parts = line.strip().split()
+            if len(parts) < 4:
+                print(
+                    f"Warning: Skipping invalid line {idx} in {filepath}: '{line.strip()}'")
+                continue
+            atom, x, y, z = parts[:4]
+            try:
+                coords.append([float(x), float(y), float(z)])
+            except ValueError as e:
+                print(
+                    f"Warning: Invalid coordinates on line {idx} in {filepath}: {e}")
+                continue
+            atoms.append(atom)
+
+    if not atoms or not coords:
+        raise ValueError(f"No valid atomic data found in {filepath}.")
+
     coords = np.array(coords).T  # Transpose to get a 3xN array
     return atoms, coords
 

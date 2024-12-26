@@ -96,6 +96,12 @@ def main() -> None:
     print("Starting Pipeline with parameters:")
     print(config)
 
+    for filepath in coords:
+        if not os.path.exists(filepath):
+            print(f"Error: Coordinate file '{filepath}' does not exist.")
+            print(
+                "Please ensure all coordinate files are present or provide a valid configuration.")
+            return
     # Initialize HPCDriver and StepRunner
     mol = None
     reaction = None
