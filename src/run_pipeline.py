@@ -2,7 +2,7 @@
 """
 run_pipeline.py
 
-The main script that parses command-line arguments and orchestrates the 
+The main script that parses command-line arguments and orchestrates the
 pipeline using HPCDriver, StepRunner, and PipelineManager.
 
 maybe associate the methods of step_runner to Reaction and Molecule classes.
@@ -29,7 +29,7 @@ solvent: "water"
 mult: 1
 charge: 0
 steps: "opt, freq, neb,ts..."
-coords: educt.xyz, product.xyz, ts.xyz # or just a filename 
+coords: educt.xyz, product.xyz, ts.xyz # or just a filename
 Nimages: 8
 
 
@@ -40,6 +40,10 @@ def parse_yaml(file_path: str) -> dict:
     """
     Parses a YAML file and returns the contents as a dictionary.
     """
+    if not file_path or not os.path.exists(file_path):
+        print(
+            "No configuration file provided or file does not exist. Using default values.")
+        return {}
     with open(file_path, 'r') as file:
         try:
             return yaml.safe_load(file)
@@ -70,12 +74,10 @@ def parse_steps(steps_str: str) -> List[str]:
 
 def main() -> None:
     """
-    Change this to a input based (yaml) part. 
+    Main function to run the ORCA pipeline.
     """
-
     parser = argparse.ArgumentParser(description="Run the ORCA pipeline.")
-
-    parser.add_argument('config', type=str, required=True,
+    parser.add_argument('config', type=str, nargs='?', default=None,
                         help='Path to the YAML configuration file.')
     args = parser.parse_args()
 
