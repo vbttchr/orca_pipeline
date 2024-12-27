@@ -66,7 +66,7 @@ class StepRunner:
     # ---------- OPTIMIZATION STEP ---------- #
     def geometry_optimisation(self,
                               trial: int = 0,
-                              upper_limit: int = 5,
+                              upper_limit: int = MAX_TRIALS,
                               ) -> bool:
         """
         Optimize educt and product with XTB or r2scan-3c. Retries if fails.
@@ -208,7 +208,7 @@ class StepRunner:
             f"%pal nprocs {SLURM_PARAMS_HIGH_MEM['nprocs']} end\n"
             f"%maxcore {SLURM_PARAMS_HIGH_MEM['maxcore']}\n"
             f"*xyz {mol.charge} {mol.mult}\n"
-            f"{xyz_block}"
+            f"{xyz_block} \n *"
         )
         with open('freq.inp', 'w') as f:
             f.write(freq_input)
@@ -248,7 +248,7 @@ class StepRunner:
     ### TODO maybe also do zoom-neb
     def neb_ts(self,
                trial=0,
-               upper_limit: int = 5,
+               upper_limit: int = MAX_TRIALS,
                fast=False,
                switch=False) -> bool:
         """
@@ -299,7 +299,7 @@ class StepRunner:
             solvent_formatted = f"ALPB({self.reaction.educt.solvent})" if "xtb" in self.reaction.method.lower(
             ) else f"CPCM({self.reaction.educt.solvent})"
         neb_input = (
-            f"! {self.reaction.method} {neb_block} {solvent_formatted}\n"
+            f"! {self.reaction.method} {neb_block} {solvent_formatted} tightscf\n"
             f"{geom_block}"
             f"%pal nprocs {SLURM_PARAMS_LOW_MEM['nprocs']} end\n"
             f"%maxcore {SLURM_PARAMS_LOW_MEM['maxcore']}\n"
@@ -359,7 +359,7 @@ class StepRunner:
                 os.chdir("..")
                 return False
             else:
-                return True
+                return True ## already changed dir
         print("There was an error during the run, Restart with the same settings")
         self.hpc_driver.scancel_job(job_id)
         time.sleep(RETRY_DELAY)
@@ -403,7 +403,7 @@ class StepRunner:
             return self.neb_ci()
 
     # ---------- NEB-CI STEP ---------- #
-    def neb_ci(self, trial=0, upper_limit: int = 5,) -> bool:
+    def neb_ci(self, trial=0, upper_limit: int = MAX_TRIALS,) -> bool:
         """
         Performs NEB-CI (Climbing Image) calculation. 
         Assums that the educt and products are already optimized with the same method
@@ -416,8 +416,8 @@ class StepRunner:
             return False
 
         if trial == 1:
-            self.make_folder("NEB_CI")
-            os.chdir("NEB_CI")
+            self.make_folder("NEB")
+            os.chdir("NEB")
             self.reaction.educt.to_xyz("educt.xyz")
             self.reaction.product.to_xyz("product.xyz")
         solvent_formatted = ""
@@ -427,7 +427,7 @@ class StepRunner:
             ) else f"CPCM({self.reaction.educt.solvent})"
 
         neb_input = (
-            f"!NEB-CI {solvent_formatted} {self.reaction.method}\n"
+            f"!NEB-CI {solvent_formatted} {self.reaction.method} tightscf\n"
             f"%pal nprocs {SLURM_PARAMS_LOW_MEM['nprocs']} end\n"
             f"%maxcore {SLURM_PARAMS_LOW_MEM['maxcore']}\n"
             f"%neb\n  Product \"product.xyz\"\n  NImages {self.reaction.nimages} \nend\n"
@@ -443,11 +443,26 @@ class StepRunner:
 
         if status == 'COMPLETED' and 'H U R R A Y' in self.grep_output('H U R R A Y', 'neb-CI.out'):
             print('[NEB_CI] Completed successfully.')
-            self.reaction.transition_state = Molecule.from_xyz(
+            pot_ts= Molecule.from_xyz(
                 "neb-CI.xyz", charge=self.reaction.educt.charge, mult=self.reaction.educt.mult, solvent=self.reaction.educt.solvent, method="r2scan-3c")
+            freq_success = self.freq_job(pot_ts, ts=True)
+            if freq_success:
+                self.reaction.transition_state = pot_ts
 
-            os.chdir('..')
-            return True
+                os.chdir('..')
+                return True
+            else:
+                print("TS has no significant imag freq Retry with refined method")
+                if self.reaction.nimages ==24:
+                    print("Max number of images reached ")
+                    os.chdir('..')
+                    return False
+                self.hpc_driver.scancel_job(job_id)
+                time.sleep(RETRY_DELAY)
+                self.hpc_driver.shell_command(
+                    "rm -rf *.gbw pmix* *densities* freq.inp slurm* *neb*.inp")
+                self.reaction.nimages += 4
+                return self.neb_ci(trial, upper_limit)
         else:
             print('[NEB_CI] Job failed or did not converge. Retrying...')
             self.hpc_driver.scancel_job(job_id)
@@ -473,13 +488,12 @@ class StepRunner:
         if trial == 1:
             self.make_folder("TS")
             os.chdir("TS")
+            self.hpc_driver.shell_command("cp ../NEB/freq.hess .") ##  TODO generalize that this also would work for SCAN job
             self.reaction.transition_state.to_xyz("ts_guess.xyz")
 
-        # Always run freq job on the guess to ensure negative frequency
-        if not self.freq_job(self.reaction.transition_state, ts=True):
-            print("[TS_OPT] Frequency job indicates no negative frequency. Aborting.")
-            return False
 
+
+        ## TODO use tightopt settings for TS optimization
         solvent_formatted = f"CPCM({self.reaction.educt.solvent})" if self.reaction.educt.solvent else ""
 
         ts_input = (
@@ -499,8 +513,16 @@ class StepRunner:
 
         if status == 'COMPLETED' and 'HURRAY' in self.grep_output('HURRAY', 'TS_opt.out'):
             print("[TS_OPT] TS optimization succeeded.")
-            os.chdir("..")
-            return True
+            ts_opt = Molecule.from_xyz(
+                "TS_opt.xyz", charge=self.reaction.educt.charge, mult=self.reaction.educt.mult, solvent=self.reaction.educt.solvent, name="ts")
+            if self.freq_job(ts_opt, ts=True):
+                self.reaction.transition_state = ts_opt
+                os.chdir("..")
+                return True
+            else:
+                print("[TS_OPT] TS has no significant imaginary frequency. Check negative mode of guess.")
+                os.chdir("..")
+                return False
 
         print("[TS_OPT] TS optimization failed. Retrying...")
         self.hpc_driver.scancel_job(job_id)
