@@ -102,7 +102,7 @@ def main() -> None:
             print(
                 "Please ensure all coordinate files are present or provide a valid configuration.")
             return
-    # Initialize HPCDriver and StepRunner
+    # Initialize HPCDriver and StepRunn
     mol = None
     reaction = None
     if len(coords) == 1:

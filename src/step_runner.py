@@ -610,7 +610,7 @@ class StepRunner:
         method = self.reaction.sp_method if self.reaction else self.molecule.sp_method
         charge = self.reaction.transition_state.charge if self.reaction else self.molecule.charge
         mult = self.reaction.transition_state.mult if self.reaction else self.molecule.mult
-
+    
         trial += 1
         print(f"[SP] Trial {trial} ")
         if trial > upper_limit:
@@ -656,10 +656,11 @@ class StepRunner:
             job_ids.append(self.hpc_driver.submit_job(
                 "SP.inp", "SP_slurm.out"))
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=len(job_ids)) as executor:
-                futures = [executor.submit(
-                    self.hpc_driver.check_job_status, jid) for jid in job_ids]
-                statuses = [f.result() for f in futures]
+        statuses = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(job_ids)) as executor:
+            futures = [executor.submit(
+            self.hpc_driver.check_job_status, jid) for jid in job_ids]
+            statuses = [f.result() for f in futures]
 
         if all(status == 'COMPLETED' for status in statuses):
             if is_reaction:
