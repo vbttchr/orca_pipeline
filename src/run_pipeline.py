@@ -90,7 +90,7 @@ def main() -> None:
     method = config.get('method', 'r2scan-3c')
     coords = config.get('coords', ["educt.xyz", "product.xyz"])
     solvent = config.get('solvent', None)
-    Nimages = config.get('Nimages', 16)
+    Nimages = config.get('Nimages', 8)
     steps = parse_steps(config.get('steps', DEFAULT_STEPS))
 
     print("Starting Pipeline with parameters:")
