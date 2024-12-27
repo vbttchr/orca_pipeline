@@ -244,6 +244,8 @@ class StepRunner:
         return self.freq_job(self, mol=mol, trial=trial, upper_limit=upper_limit, ts=ts)
 
     # ---------- NEB-TS STEP ---------- #
+
+    ### TODO maybe also do zoom-neb
     def neb_ts(self,
                trial=0,
                upper_limit: int = 5,
