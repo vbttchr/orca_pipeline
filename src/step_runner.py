@@ -474,11 +474,12 @@ class StepRunner:
     # ---------- TS Optimization STEP ---------- #
     def ts_opt(self,
                trial: int = 0,
-               upper_limit: int = 5) -> bool:
+               upper_limit: int = MAX_TRIALS) -> bool:
         """
         Takes a guessed TS (e.g., from NEB) and optimizes it with r2scan-3c OptTS.
         Checks for 'HURRAY' in output. Retries if fails.
         """
+        
         trial += 1
         print(f"[TS_OPT] Trial {trial} for TS optimization")
         if trial > upper_limit:
