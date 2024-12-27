@@ -37,7 +37,7 @@ def read_xyz(filepath: str) -> Tuple[List[str], np.ndarray]:
     if not atoms or not coords:
         raise ValueError(f"No valid atomic data found in {filepath}.")
 
-    coords = np.array(coords).T  # Transpose to get a 3xN array
+    coords = np.array(coords)  # Transpose to get a Nx3 array
     return atoms, coords
 
 
@@ -58,8 +58,10 @@ class Molecule:
         self.method = method
         self.sp_method = sp_method
 
-        if len(atoms) != coords.shape[1]:
+        if len(atoms) != len(coords):
+            print(len(atoms), len(coords))
             raise ValueError("Number of atoms and coordinates must match.")
+            
         if mult < 1:
             raise ValueError("Multiplicity must be at least 1.")
 
@@ -102,7 +104,7 @@ class Molecule:
         with open(filepath, 'w') as file:
             file.write(f"{len(self.atoms)}\n")
             file.write("\n")
-            for atom, coord in zip(self.atoms, self.coords.T):
+            for atom, coord in zip(self.atoms, self.coords):
                 file.write(
                     f"{atom} {coord[0]:.9f} {coord[1]:.9f} {coord[2]:.9f}\n")
 
