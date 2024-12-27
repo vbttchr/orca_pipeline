@@ -207,7 +207,7 @@ class StepRunner:
             f"! {method} {solvent_formatted}\n"
             f"%pal nprocs {SLURM_PARAMS_HIGH_MEM['nprocs']} end\n"
             f"%maxcore {SLURM_PARAMS_HIGH_MEM['maxcore']}\n"
-            f"*xyzfile {mol.charge} {mol.mult}\n"
+            f"*xyz {mol.charge} {mol.mult}\n"
             f"{xyz_block}"
         )
         with open('freq.inp', 'w') as f:
@@ -241,7 +241,7 @@ class StepRunner:
         self.hpc_driver.scancel_job(job_id_freq)
         self.hpc_driver.shell_command(
             "rm -rf *.gbw pmix* *densities* freq.inp slurm*")
-        return self.freq_job(self, mol=mol, trial=trial, upper_limit=upper_limit, ts=ts)
+        return self.freq_job( mol=mol, trial=trial, upper_limit=upper_limit, ts=ts)
 
     # ---------- NEB-TS STEP ---------- #
 
