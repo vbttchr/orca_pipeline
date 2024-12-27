@@ -118,8 +118,10 @@ def main() -> None:
         reaction = Reaction.from_xyz(
             educt_filepath=coords[0], product_filepath=coords[1], transition_state_filepath=coords[2], nimages=Nimages, method=method, charge=charge, mult=mult, solvent=solvent)  # Reaction  # Reaction
 
+    print(mol)
+    print(reaction)
     hpc_driver = HPCDriver()
-    step_runner = StepRunner(hpc_driver, reaction=reaction, molecule=mol)
+    step_runner = StepRunner(hpc_driver, reaction=reaction, molecule=mol,)
     # continue here
     pipeline_manager = PipelineManager(step_runner)
 

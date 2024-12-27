@@ -150,4 +150,4 @@ class Reaction:
                                     mult=mult, solvent=solvent, method=method, name="product")
         transition_state = Molecule.from_xyz(transition_state_filepath, charge=charge, mult=mult,
                                              solvent=solvent, name="ts", method=method) if transition_state_filepath else None
-        return cls(educt, product, transition_state)
+        return cls(educt, product, transition_state, nimages=nimages, method=method)
