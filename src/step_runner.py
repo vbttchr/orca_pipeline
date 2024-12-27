@@ -324,7 +324,7 @@ class StepRunner:
             # TODO we need a retry mechanism here if ssubo is to slow.
             if os.path.exists(ts_xyz):
                 potential_ts = Molecule.from_xyz(
-                    ts_xyz, charge=self.reaction.charge, mult=self.reaction.mult, solvent=self.reaction.solvent, name="ts")
+                    ts_xyz, charge=self.reaction.educt.charge, mult=self.reaction.educt.mult, solvent=self.reaction.educt.solvent, name="ts")
                 freq_success = self.freq_job(potential_ts, ts=True)
                 if freq_success:
                     # Copy the final TS structure to a known file
@@ -429,7 +429,7 @@ class StepRunner:
             f"%pal nprocs {SLURM_PARAMS_LOW_MEM['nprocs']} end\n"
             f"%maxcore {SLURM_PARAMS_LOW_MEM['maxcore']}\n"
             f"%neb\n  Product \"product.xyz\"\n  NImages {self.reaction.nimages} \nend\n"
-            f"*xyzfile {self.reaction.charge} {self.reaction.mult} educt.xyz\n"
+            f"*xyzfile {self.reaction.educt.charge} {self.reaction.educt.mult} educt.xyz\n"
         )
 
         with open('neb-CI.inp', 'w') as f:
