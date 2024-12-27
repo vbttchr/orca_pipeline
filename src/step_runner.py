@@ -33,7 +33,7 @@ class StepRunner:
         self.molecule = molecule
         self.state = "INITIALISED"
 
-        if not (molecule and reaction):
+        if not (molecule or reaction):
             print("Please provide a reaction or a molecule.")
             exit
 
