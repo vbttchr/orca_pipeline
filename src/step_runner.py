@@ -201,14 +201,14 @@ class StepRunner:
 
         xyz_block = ""
         for atom, coord in zip(mol.atoms, mol.coords):
-            xyz_block += f"{atom}  {coord[0]:.9f} {coord[1]:.9f} {coord[2]:.9f}"
+            xyz_block += f"{atom}  {coord[0]:.9f} {coord[1]:.9f} {coord[2]:.9f} /n"
           # iterate over the atmos and coords to get the xyz block
         freq_input = (
             f"! {method} {solvent_formatted}\n"
             f"%pal nprocs {SLURM_PARAMS_HIGH_MEM['nprocs']} end\n"
             f"%maxcore {SLURM_PARAMS_HIGH_MEM['maxcore']}\n"
             f"*xyz {mol.charge} {mol.mult}\n"
-            f"{xyz_block} \n *"
+            f"{xyz_block}  *"
         )
         with open('freq.inp', 'w') as f:
             f.write(freq_input)
