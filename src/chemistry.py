@@ -128,11 +128,16 @@ class Reaction:
 
         if educt.mult != product.mult:
             raise ValueError("Exicited state reactions are not supported yet.")
+        
+        ## TODO validation of object 
 
-    @classmethod
+    
     def __str__(self) -> str:
         reactant_strs = " + ".join(f"{self.educt}")
         product_strs = " + ".join(self.products)
+        if self.transition_state:
+            ts_str = f"TS: {self.transition_state}"
+            return f"{reactant_strs} => {ts_str} => {product_strs}"
         return f"{reactant_strs} => {product_strs}"
 
     def __repr__(self) -> str:
