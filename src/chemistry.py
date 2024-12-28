@@ -114,13 +114,14 @@ class Reaction:
     Represents a elementary step in a reaction.
     """
 
-    def __init__(self, educt: Molecule, product: Molecule, transitions_state: Molecule = None, nimages: int = 16, method: str = "r2scan-3c", sp_method="r2scanh def2-qzvpp d4") -> None:
+    def __init__(self, educt: Molecule, product: Molecule, transitions_state: Molecule = None, nimages: int = 16, method: str = "r2scan-3c", sp_method="r2scanh def2-qzvpp d4",solvent="") -> None:
         self.educt = educt
         self.product = product
         self.transition_state = transitions_state
         self.nimages = nimages
         self.method = method
         self.sp_method = sp_method
+        self.solvent = solvent
 
         if educt.charge != product.charge:
             raise ValueError("Charge of educt and product must match.")
