@@ -166,7 +166,7 @@ class Molecule:
 
         print(f"Starting optimisation of {self.name}")
 
-        input_name = f"{self.name}.inp"
+        input_name = f"{self.name}_opt.inp"
 
         input = (
             f"!{self.method} {solvent_formatted} opt\n"
