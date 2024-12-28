@@ -193,7 +193,7 @@ class Molecule:
             if 'HURRAY' in driver.grep_output('HURRAY', input_name.split('.')[0] + '.out'):
                 print("[OPT] Optimisation jobs completed.")
 
-                self.update_coords_from_xyz(f"{input_name.split(".")[0]}.xyz")
+                self.update_coords_from_xyz(f"{input_name.split('.')[0]}.xyz")
 
                 # directories are handle by step_runner or custom script.
                 return True
