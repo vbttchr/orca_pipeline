@@ -66,14 +66,14 @@ class Molecule:
             raise ValueError("Multiplicity must be at least 1.")
 
     @classmethod
-    def from_xyz(cls, filepath: str, charge: int, mult: int, solvent: str = None, name: str = "mol", method: str = "r2scan-3c") -> 'Molecule':
+    def from_xyz(cls, filepath: str, charge: int, mult: int, solvent: str = None, name: str = "mol", method: str = "r2scan-3c",sp_method="r2scanh def2-qzvpp d4") -> 'Molecule':
         """
         Creates a Molecule instance from an XYZ file.
         """
         if name == None:
             name = os.path.basename(filepath).split('.')[0]
         atoms, coords = read_xyz(filepath)
-        return cls(name, atoms, coords, charge=charge, mult=mult, solvent=solvent, method=method)
+        return cls(name, atoms, coords, charge=charge, mult=mult, solvent=solvent, method=method,sp_method=sp_method)
 
     def __str__(self) -> str:
         return f"Molecule(name={self.name},atoms={self.atoms}, coordinates={self.coords}, Multiplicity={self.mult}, Charge={self.charge})"
@@ -140,7 +140,7 @@ class Reaction:
         return f"{reactant_strs} => {product_strs}"
 
     @classmethod
-    def from_xyz(cls, educt_filepath: str, product_filepath: str, transition_state_filepath: str = None, nimages: int = 16, method: str = "r2scan-3c", charge: int = 0, mult: int = 1, solvent: str = None) -> 'ElementaryStep':
+    def from_xyz(cls, educt_filepath: str, product_filepath: str, transition_state_filepath: str = None, nimages: int = 16, method: str = "r2scan-3c", charge: int = 0, mult: int = 1, solvent: str = None,sp_method="r2scanh def2-qzvpp d4") -> 'Reaction':
         """
         Creates an ElementaryStep instance from XYZ files.
         """
@@ -150,4 +150,4 @@ class Reaction:
                                     mult=mult, solvent=solvent, method=method, name="product")
         transition_state = Molecule.from_xyz(transition_state_filepath, charge=charge, mult=mult,
                                              solvent=solvent, name="ts", method=method) if transition_state_filepath else None
-        return cls(educt, product, transition_state, nimages=nimages, method=method)
+        return cls(educt, product, transition_state, nimages=nimages, method=method,solvent=solvent, sp_method=sp_method)

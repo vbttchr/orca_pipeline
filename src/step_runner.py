@@ -427,7 +427,7 @@ class StepRunner:
             ) else f"CPCM({self.reaction.educt.solvent})"
 
         neb_input = (
-            f"!NEB-CI {solvent_formatted} {self.reaction.method} tightscf\n"
+            f"!NEB-CI {self.reaction.method} {solvent_formatted}  tightscf\n"
             f"%pal nprocs {SLURM_PARAMS_LOW_MEM['nprocs']} end\n"
             f"%maxcore {SLURM_PARAMS_LOW_MEM['maxcore']}\n"
             f"%neb\n  Product \"product.xyz\"\n  NImages {self.reaction.nimages} \nend\n"
@@ -443,8 +443,9 @@ class StepRunner:
 
         if status == 'COMPLETED' and 'H U R R A Y' in self.grep_output('H U R R A Y', 'neb-CI.out'):
             print('[NEB_CI] Completed successfully.')
+            time.sleep(20)
             pot_ts= Molecule.from_xyz(
-                "neb-CI.xyz", charge=self.reaction.educt.charge, mult=self.reaction.educt.mult, solvent=self.reaction.educt.solvent, method="r2scan-3c")
+                "neb-CI_NEB-CI_converged.xyz", charge=self.reaction.educt.charge, mult=self.reaction.educt.mult, solvent=self.reaction.educt.solvent, method="r2scan-3c")
             freq_success = self.freq_job(pot_ts, ts=True)
             if freq_success:
                 self.reaction.transition_state = pot_ts
