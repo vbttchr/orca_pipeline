@@ -13,8 +13,6 @@ from constants import MAX_TRIALS, RETRY_DELAY, SLURM_PARAMS_BIG_HIGH_MEM, SLURM_
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
-SETTINGS_FILE = "settings.json"
-
 
 class StepRunner:
     def __init__(self,
@@ -128,26 +126,22 @@ class StepRunner:
                 return json.load(f)
         return {}
 
-    def save_state(self, steps: list, charge: int, mult: int, solvent: str, Nimages: int) -> None:
+    def save_state(self) -> None:
         """
         Saves initial pipeline state.
         """
         os.chdir(self.home_dir)
 
-        with open("w") as f:
-            f.write("")
-
-        settings = {
-            "steps": steps,
-            "charge": charge,
-            "mult": mult,
-            "solvent": solvent,
-            "Nimages": Nimages
-
-        }
-        with open(SETTINGS_FILE, 'w') as f:
+        settings = self.state
+        with open("pipeline_state.json", 'w') as f:
             json.dump(settings, f, indent=4)
-        logging.info("Initial pipeline state saved.")
+
+    def update_state(self, step: str) -> None:
+        self.state["last_completed_step"] = step
+        self.state["charge"] = self.charge
+        self.state["mult"] = self.mult
+        self.state["solvent"] = self.solvent
+        self.state["Nimages"] = self.nimages
 
     def pipeline(self, step: str) -> bool:
         """
@@ -177,7 +171,7 @@ class StepRunner:
 
         success = self.pipeline(step)
         if success:
-            self.save_state(step)
+            self.update_state(step)
         else:
             logging.error(f"Step '{step}' failed.")
         return success
@@ -194,8 +188,6 @@ class StepRunner:
             self.target, Molecule) else self.target.educt.solvent
         Nimages = self.target.nimages if isinstance(
             self.target, Reaction) else 0
-        self.save_initial_state(
-            step=self.steps[0], charge=charge, mult=mult, solvent=solvent, Nimages=Nimages)
 
         for step in self.steps:
 
@@ -204,12 +196,11 @@ class StepRunner:
             if not success:
                 logging.error(
                     f"Pipeline halted due to failure in step '{step}'.")
-                with open(FAILED_MARKER, "w") as f:
+                with open("FAILED.out", "w") as f:
                     f.write(f"Failed at step: {step}\n")
                 return False
 
-        self.save_completion_state(
-            steps=self.steps, charge=charge, mult=mult, solvent=solvent, Nimages=Nimages)
+        self.save_state()
         return True
 
     # Define all pipeline step methods
