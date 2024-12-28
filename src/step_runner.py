@@ -189,20 +189,18 @@ class StepRunner:
                 "NEB-CI step is only applicable to Reaction objects.")
             return False
 
-    def neb_ts(self, fast: bool, switch: bool) -> bool:
+    def neb_ts(self) -> bool:
         logging.info("Starting NEB-TS calculation.")
         if isinstance(self.target, Reaction):
+
             self.make_folder("NEB")
             os.chdir("NEB")
 
             message, success = self.target.neb_ts(
-                self.hpc_driver, self.slurm_params_low_mem, trial=0, upper_limit=MAX_TRIALS, fast=fast, switch=switch)
-            if message == "UNCONVERGED":
+                self.hpc_driver, self.slurm_params_low_mem, trial=0, upper_limit=MAX_TRIALS)
+            if message == "failed":
                 os.chdir("..")
-                return self.handle_unconverged_neb(0, MAX_TRIALS, fast)
-            elif message == "freq":
-                os.chdir("..")
-                return self.handle_failed_imagfreq(0, MAX_TRIALS, fast)
+                return self.handle_failed_neb(MAX_TRIALS)
             else:
                 return success
         else:
@@ -255,37 +253,29 @@ class StepRunner:
                 "Unsupported target type for single point calculation.")
             return False
 
-    def handle_unconverged_neb(self,  uper_limit, fast):
+    def handle_failed_neb(self,  uper_limit):
         if "xtb" in self.target.method.lower():
             print("Restating with FAST-NEB r2scan-3c")
-            self.reaction.method = "r2scan-3c"
-            self.reaction.educt.method = "r2scan-3c"
-            self.reaction.product.method = "r2scan-3c"
+            self.target.method = "r2scan-3c"
+            self.target.educt.method = "r2scan-3c"
+            self.target.product.method = "r2scan-3c"
+            self.target.fast = True
+            self.target.nimages = 16
+
             print("Need to reoptimize reactants")
-            return self.neb_ts(trial=0, upper_limit=uper_limit, fast=True, switch=True)
-        elif fast:
+            if not self.target.optimise_reactants(
+                    self.hpc_driver, self.slurm_params_low_mem, trial=0, upper_limit=uper_limit):
+                print("Failed to reoptimize reactants.")
+                return False
+            print("Reactants reoptimized. Restarting FAST-NEB-TS with r2scan.")
+
+            return self.neb_ts()
+        elif self.target.fast:
+            self.target.fast = False
+            self.target.nimages = 12
             print("Restarting with NEB-TS r2scan-3c")
-            return self.neb_ts(trial=0, upper_limit=uper_limit, fast=False, switch=False)
+            return self.neb_ts()
         else:
-            return self.neb_ci()
-
-    def handle_failed_imagfreq(self, trial, upper_limit, fast):
-        """
-       Handles when NEB-TS finished but no significant imag freq is found.
-        """
-
-        # check what method was used
-
-        if "xtb" in self.reaction.method.lower():
-            print("No significant imaginary frequency found. Retrying with r2scan-3c.")
-            self.reaction.method = "r2scan-3c"
-            self.reaction.educt.method = "r2scan-3c"
-            self.reaction.product.method = "r2scan-3c"
-            return self.neb_ts(trial=0, upper_limit=upper_limit, fast=True, switch=True)
-        elif fast:
-            print("No significant imaginary frequency found. Retrying with fast=False.")
-            return self.neb_ts(trial=0, upper_limit=upper_limit, fast=False)
-        else:
-            print("No significant imag freq found.")
-            print("Do a neb_ci run to try to get TS guess.")
+            print("Trying to get a better initial guess with NEB-CI")
+            self.target.nimages = 16
             return self.neb_ci()

@@ -681,7 +681,7 @@ class Reaction:
                     driver.shell_command(
                         "rm -rf *.gbw pmix* *densities* freq.inp slurm* *neb*.inp")
 
-                    return "freq", False
+                    return "failed", False
 
         elif self.grep_output('ORCA TERMINATED NORMALLY', f'{neb_input_name.rsplit(".", 1)[0]}.out'):
             print("ORCA has terminated normally, optimisation did not converge.")
@@ -691,7 +691,7 @@ class Reaction:
             driver.shell_command(
                 "rm -rf *.gbw pmix* *densities* freq.inp slurm* *neb*.inp")
 
-            return "unconverged", False
+            return "failed", False
   # already changed dir
         print("There was an error during the run, Restart with the same settings")
         driver.scancel_job(job_id)
