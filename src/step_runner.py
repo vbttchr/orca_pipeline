@@ -16,22 +16,6 @@ COMPLETED_MARKER = "COMPLETED"
 FAILED_MARKER = "FAILED"
 
 
-def make_folder(dir_name: str) -> None:
-    """
-    Creates a new folder, removing existing one if present.
-    """
-    path = os.path.join(os.getcwd(), dir_name)
-    if os.path.exists(path):
-        if os.path.isdir(path):
-            print(f"Removing existing folder {path}")
-            shutil.rmtree(path)
-        else:
-            print(f"Removing existing file {path}")
-            os.remove(path)
-        os.makedirs(path)
-        print(f"Created folder {path}")
-
-
 class StepRunner:
     def __init__(self,
                  hpc_driver: HPCDriver,
@@ -47,6 +31,21 @@ class StepRunner:
         self.home_dir = home_dir
         self.state_file = os.path.join(self.home_dir, "pipeline_state.json")
         self.completed_steps = self.load_state()
+
+    def make_folder(dir_name: str) -> None:
+        """
+        Creates a new folder, removing existing one if present.
+        """
+        path = os.path.join(os.getcwd(), dir_name)
+        if os.path.exists(path):
+            if os.path.isdir(path):
+                print(f"Removing existing folder {path}")
+                shutil.rmtree(path)
+            else:
+                print(f"Removing existing file {path}")
+                os.remove(path)
+            os.makedirs(path)
+            print(f"Created folder {path}")
 
     def load_state(self) -> set:
         if os.path.exists(self.state_file):
@@ -103,12 +102,6 @@ class StepRunner:
         """
         Maps step strings to methods within StepRunner based on target type.
         """
-        fast = False
-        if "NEB" in step.upper():
-            if isinstance(self.target, Reaction):
-                fast = False if "xtb" in self.target.method.lower() else True
-            else:
-                fast = False  # Default behavior for Molecule
 
         steps_mapping = {
             "OPT": self.geometry_optimisation,
@@ -172,12 +165,12 @@ class StepRunner:
     def geometry_optimisation(self) -> bool:
         logging.info("Starting geometry optimization.")
         if isinstance(self.target, Reaction):
-            make_folder("OPT")
+            self.make_folder("OPT")
             os.chdir("OPT")
 
             return self.target.optimise_reactants(self.hpc_driver, self.slurm_params_low_mem, trial=0, upper_limit=MAX_TRIALS)
         elif isinstance(self.target, Molecule):
-            make_folder("OPT")
+            self.make_folder("OPT")
             os.chdir("OPT")
             return self.target.geometry_opt(self.hpc_driver, self.slurm_params_low_mem, trial=0, upper_limit=MAX_TRIALS)
         else:
@@ -187,7 +180,7 @@ class StepRunner:
     def neb_ci(self) -> bool:
         logging.info("Starting NEB-CI calculation.")
         if isinstance(self.target, Reaction):
-            make_folder("NEB")
+            self.make_folder("NEB")
             os.chdir("NEB")
             return self.target.neb_ci(self.hpc_driver, self.slurm_params_low_mem, trial=0, upper_limit=MAX_TRIALS)
         else:
@@ -198,7 +191,7 @@ class StepRunner:
     def neb_ts(self, fast: bool, switch: bool) -> bool:
         logging.info("Starting NEB-TS calculation.")
         if isinstance(self.target, Reaction):
-            make_folder("NEB")
+            self.make_folder("NEB")
             os.chdir("NEB")
 
             message, success = self.target.neb_ts(
@@ -219,7 +212,7 @@ class StepRunner:
     def ts_opt(self) -> bool:
         logging.info("Starting TS optimization.")
         if isinstance(self.target, Reaction):
-            make_folder("TS")
+            self.make_folder("TS")
 
             self.hpc_driver.shell_command("cp NEB/*.hess TS/guess.hess")
             os.chdir("TS")
@@ -236,7 +229,7 @@ class StepRunner:
     def irc_job(self) -> bool:
         logging.info("Starting IRC job.")
         if isinstance(self.target, Reaction):
-            make_folder("IRC")
+            self.make_folder("IRC")
             self.hpc_driver.shell_command(
                 f"cp TS/{self.name}_freq.hess IRC/TS.xyz")
             return self.target.transition_state.irc_job(self.hpc_driver, self.slurm_params_low_mem, trial=0, upper_limit=MAX_TRIALS)
@@ -249,8 +242,12 @@ class StepRunner:
     def sp_calc(self) -> bool:
         logging.info("Starting single point calculation.")
         if isinstance(self.target, Reaction):
+            self.make_folder("SP")
+            os.chdir("SP")
             return self.target.sp_calc(self.hpc_driver, self.slurm_params)
         elif isinstance(self.target, Molecule):
+            self.make_folder("SP")
+            os.chdir("SP")
             return self.target.sp_calc(self.hpc_driver, self.slurm_params)
         else:
             logging.error(
