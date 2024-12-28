@@ -184,7 +184,7 @@ class Molecule:
         # Submit jobs
 
         out_file = f"{self.name}_slurm.out"
-        job_id = driver.submit_job(f"{self.molecule.name}", out_file)
+        job_id = driver.submit_job(f"{input_name}", out_file)
         status = driver.check_job_status(job_id)
 
         # Wait for completion
