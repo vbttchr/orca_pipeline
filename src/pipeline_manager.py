@@ -130,10 +130,10 @@ class PipelineManager:
             success = self.pipeline(stp)
             if not success:
                 print(f"{stp} failed. Saving state for restart.")
-                #self.save_failure_state(stp)
+                # self.save_failure_state(stp)
                 sys.exit(1)
             print(f"--- Step {stp} completed successfully ---\n")
 
         print("All pipeline steps completed successfully.")
-        #self.save_completion_state(steps, charge, mult, solvent, Nimages)
+        # self.save_completion_state(steps, charge, mult, solvent, Nimages)
         sys.exit(0)

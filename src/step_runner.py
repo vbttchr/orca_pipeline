@@ -3,6 +3,8 @@ import json
 import os
 import logging
 import shutil
+import glob
+import sys
 from typing import List, Callable, Dict, Union
 from chemistry import Reaction, Molecule  # Ensure correct import paths
 from hpc_driver import HPCDriver
@@ -12,8 +14,6 @@ logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 SETTINGS_FILE = "settings.json"
-COMPLETED_MARKER = "COMPLETED"
-FAILED_MARKER = "FAILED"
 
 
 class StepRunner:
@@ -30,7 +30,81 @@ class StepRunner:
         self.slurm_params_low_mem = slurm_params_low_mem
         self.home_dir = home_dir
         self.state_file = os.path.join(self.home_dir, "pipeline_state.json")
-        self.completed_steps = self.load_state()
+        self.state = self.load_state()
+
+        self.steps = steps
+        if not self.state:
+            logging.info("No previous state found.")
+            initial_state = {
+                "steps": self.steps,
+                "last_completed_step": "",
+                "charge": 0,
+                "mult": 1,
+                "solvent": "",
+                "Nimages": 0
+            }
+            self.state = initial_state
+        self.completed_steps = self.state.get("last_completed_steps", "")
+        if self.completed_steps:
+            index = self.steps.index(self.completed_steps)
+            next_step = self.steps[index+1]
+            self.steps = self.steps[self.steps.index(next_step):]
+            logging.info(
+                f"Resuming pipeline with steps: {self.steps}")
+            match next_step:
+                case "NEB_TS" | "NEB_CI":
+                    if not os.path.exists("OPT"):
+                        logging.error(
+                            "Cannot resume NEB-TS without OPT step.")
+                        sys.exit(1)
+                    self.target.educt = Molecule.from_xyz(filepath="OPT/educt.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult,
+                                                          solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method)
+                    self.target.product = Molecule.from_xyz(filepath="OPT/product.xyz", charge=self.target.product.charge, mult=self.target.product.mult,
+                                                            solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method)
+                case "TS":
+                    if self.target.transition_state is None:
+                        if not os.path.exists("NEB"):
+                            logging.error(
+                                "Cannot resume TS without NEB step providing a guess.")
+                            sys.exit(1)
+                        self.target.educt = Molecule.from_xyz(filepath="NEB/educt.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult,
+                                                              solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method)
+                        self.target.product = Molecule.from_xyz(filepath="NEB/product.xyz", charge=self.target.product.charge, mult=self.target.product.mult,
+                                                                solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method)
+                        if os.path.exists("TS"):
+                            self.target.transition_state = Molecule.from_xyz(filepath="TS/ts_guess.xyz", charge=self.target.educt.charge,
+                                                                             mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method)
+                        else:
+                            file_path = ""
+                            if os.path.exists("NEB/neb-TS_converged.xyz"):
+                                file_path = "NEB/neb-TS_converged.xyz"
+                            elif os.path.exists("NEB/neb-TS.xyz"):
+                                pattern = "NEB/*_NEB-TS_converged.xyz"
+                                matches = glob.glob(pattern)
+                                if matches:
+                                    file_path = matches[0]
+
+                            self.target.transition_state = Molecule.from_xyz(filepath=file_path, charge=self.target.educt.charge,
+                                                                             mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method)
+                case "IRC":
+                    if not os.path.exists("TS"):
+                        logging.error(
+                            "Cannot resume IRC without TS step.")
+                        sys.exit(1)
+                    self.target.educt = Molecule.from_xyz(filepath="NEB/educt.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult,
+                                                          solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method)
+                    self.target.product = Molecule.from_xyz(filepath="NEB/product.xyz", charge=self.target.product.charge, mult=self.target.product.mult,
+                                                            solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method)
+
+                    pattern = "TS/*_TS_opt.xyz"
+                    matches = glob.glob(pattern)
+                    if matches:
+                        self.target.transition_state = Molecule.from_xyz(filepath=matches[0], charge=self.target.educt.charge,
+                                                                         mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method)
+                    else:
+                        logging.erro(
+                            "Cannot resume IRC step could not load TS_opt")
+                        sys.exit(1)
 
     def make_folder(self, dir_name: str) -> None:
         """
@@ -48,27 +122,23 @@ class StepRunner:
         os.makedirs(path)
         logging.info(f"Created folder {path}")
 
-    def load_state(self) -> set:
+    def load_state(self) -> dict:
         if os.path.exists(self.state_file):
             with open(self.state_file, 'r') as f:
-                return set(json.load(f))
-        return set()
+                return json.load(f)
+        return {}
 
-    def save_state(self, step_name: str):
-        self.completed_steps.add(step_name)
-        with open(self.state_file, 'w') as f:
-            json.dump(list(self.completed_steps), f)
-
-    def save_initial_state(self, step: str, charge: int, mult: int, solvent: str, Nimages: int) -> None:
+    def save_state(self, steps: list, charge: int, mult: int, solvent: str, Nimages: int) -> None:
         """
         Saves initial pipeline state.
         """
         os.chdir(self.home_dir)
-        with open(FAILED_MARKER, "w") as f:
+
+        with open("w") as f:
             f.write("")
 
         settings = {
-            "step": step,
+            "steps": steps,
             "charge": charge,
             "mult": mult,
             "solvent": solvent,
@@ -78,26 +148,6 @@ class StepRunner:
         with open(SETTINGS_FILE, 'w') as f:
             json.dump(settings, f, indent=4)
         logging.info("Initial pipeline state saved.")
-
-    def save_completion_state(self, steps: List[str], charge: int, mult: int, solvent: str, Nimages: int) -> None:
-        """
-        Saves final pipeline state with 'COMPLETED' marker.
-        """
-        os.chdir(self.home_dir)
-        with open(COMPLETED_MARKER, "w") as f:
-            f.write("")
-
-        settings = {
-            "step": "Completed",
-            "charge": charge,
-            "mult": mult,
-            "solvent": solvent,
-            "Nimages": Nimages,
-            "steps": steps
-        }
-        with open(SETTINGS_FILE, 'w') as f:
-            json.dump(settings, f, indent=4)
-        logging.info("Pipeline completed successfully.")
 
     def pipeline(self, step: str) -> bool:
         """
@@ -132,7 +182,7 @@ class StepRunner:
             logging.error(f"Step '{step}' failed.")
         return success
 
-    def run_pipeline(self, steps: List[str]) -> bool:
+    def run_pipeline(self) -> bool:
         """
         Executes the entire pipeline sequence.
         """
@@ -145,9 +195,9 @@ class StepRunner:
         Nimages = self.target.nimages if isinstance(
             self.target, Reaction) else 0
         self.save_initial_state(
-            step=steps[0], charge=charge, mult=mult, solvent=solvent, Nimages=Nimages)
+            step=self.steps[0], charge=charge, mult=mult, solvent=solvent, Nimages=Nimages)
 
-        for step in steps:
+        for step in self.steps:
 
             success = self.execute_step(step)
             os.chdir(self.home_dir)
@@ -159,7 +209,7 @@ class StepRunner:
                 return False
 
         self.save_completion_state(
-            steps=steps, charge=charge, mult=mult, solvent=solvent, Nimages=Nimages)
+            steps=self.steps, charge=charge, mult=mult, solvent=solvent, Nimages=Nimages)
         return True
 
     # Define all pipeline step methods
