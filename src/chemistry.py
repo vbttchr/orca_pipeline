@@ -133,16 +133,16 @@ class Reaction:
 
     
     def __str__(self) -> str:
-        reactant_strs = f"{self.educt}"
-        product_strs = f"{self.product}"
+        reactant_strs = f"{self.educt} \n"
+        product_strs = f"{self.product}\n"
         if self.transition_state:
-            ts_str = f"TS: {self.transition_state}"
+            ts_str = f"TS: {self.transition_state}\n"
             return f"{reactant_strs} => {ts_str} => {product_strs}"
         return f"{reactant_strs} => {product_strs}"
-    
+
     def __repr__(self) -> str:
-        reactant_strs = f"{self.educt}"
-        product_strs = f"{self.product}"
+        reactant_strs = f"{self.educt}\n"
+        product_strs = f"{self.product}\n"
         return f"{reactant_strs} => {product_strs}"
 
     def __repr__(self) -> str:

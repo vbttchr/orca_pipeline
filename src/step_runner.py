@@ -491,6 +491,11 @@ class StepRunner:
             self.make_folder("TS")
             os.chdir("TS")
             self.hpc_driver.shell_command("cp ../NEB/freq.hess .") ##  TODO generalize that this also would work for SCAN job
+            if not os.path.exists('freq.hess'):
+                print("Hessian file not found. Doing freq job on guess.")
+                if not self.freq_job(self.reaction.transition_state, ts=True):
+                    print("Guess has no significant imaginary frequency. Aborting.")
+
             self.reaction.transition_state.to_xyz("ts_guess.xyz")
 
 
