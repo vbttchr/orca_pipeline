@@ -136,7 +136,7 @@ def main() -> None:
                              target=target, steps=steps, home_dir=os.getcwd(), slurm_params_low_mem=slurm_params_low_mem, slurm_params_high_mem=slurm_params_high_mem,)
     # continue here
 
-    success = step_runner.run_pipeline(steps=steps)
+    success = step_runner.run_pipeline()
 
     if success:
         print("Pipeline completed successfully.")
