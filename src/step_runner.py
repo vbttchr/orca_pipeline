@@ -1,4 +1,4 @@
-import concurrent.futures
+
 import json
 import os
 import logging
@@ -37,15 +37,16 @@ class StepRunner:
         Creates a new folder, removing existing one if present.
         """
         path = os.path.join(os.getcwd(), dir_name)
+        logging.info(f"Creating folder at path: {path}")
         if os.path.exists(path):
             if os.path.isdir(path):
-                print(f"Removing existing folder {path}")
+                logging.info(f"Removing existing folder {path}")
                 shutil.rmtree(path)
             else:
-                print(f"Removing existing file {path}")
+                logging.info(f"Removing existing file {path}")
                 os.remove(path)
-            os.makedirs(path)
-            print(f"Created folder {path}")
+        os.makedirs(path)
+        logging.info(f"Created folder {path}")
 
     def load_state(self) -> set:
         if os.path.exists(self.state_file):
