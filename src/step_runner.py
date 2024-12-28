@@ -32,7 +32,7 @@ class StepRunner:
         self.state_file = os.path.join(self.home_dir, "pipeline_state.json")
         self.completed_steps = self.load_state()
 
-    def make_folder(dir_name: str) -> None:
+    def make_folder(self, dir_name: str) -> None:
         """
         Creates a new folder, removing existing one if present.
         """
