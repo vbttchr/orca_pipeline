@@ -134,7 +134,7 @@ class Reaction:
     
     def __str__(self) -> str:
         reactant_strs = " + ".join(f"{self.educt}")
-        product_strs = " + ".join(self.products)
+        product_strs = " + ".join(self.product)
         if self.transition_state:
             ts_str = f"TS: {self.transition_state}"
             return f"{reactant_strs} => {ts_str} => {product_strs}"
@@ -142,7 +142,7 @@ class Reaction:
 
     def __repr__(self) -> str:
         reactant_strs = " + ".join(f"{self.educt}")
-        product_strs = " + ".join(self.products)
+        product_strs = " + ".join(self.product)
         return f"{reactant_strs} => {product_strs}"
 
     @classmethod
