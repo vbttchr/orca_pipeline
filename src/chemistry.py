@@ -204,7 +204,7 @@ class Molecule:
         time.sleep(RETRY_DELAY)
         driver.shell_command(
             "rm -rf *.gbw pmix* *densities*  slurm* ")
-        self.update_coords_from_xyz(f"{input_name.split(".")[0]}.xyz")
+        self.update_coords_from_xyz(f"{input_name.split('.')[0]}.xyz")
         return self.geometry_optimisation(trial, upper_limit)
 
     def freq_job(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = MAX_TRIALS, ts: bool = False) -> bool:
