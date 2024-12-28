@@ -151,7 +151,7 @@ class StepRunner:
         Nimages = self.target.nimages if isinstance(
             self.target, Reaction) else 0
         self.save_initial_state(
-            step=steps[0], charge=self.target.charge, mult=mult, solvent=solvent, Nimages=Nimages)
+            step=steps[0], charge=charge, mult=mult, solvent=solvent, Nimages=Nimages)
 
         for step in steps:
 
