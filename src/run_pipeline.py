@@ -15,8 +15,7 @@ from typing import List
 
 from hpc_driver import HPCDriver
 from step_runner import StepRunner
-from pipeline_manager import PipelineManager
-from constants import DEFAULT_STEPS
+from constants import DEFAULT_STEPS, SLURM_PARAMS_BIG_HIGH_MEM, SLURM_PARAMS_BIG_LOW_MEM
 from chemistry import Molecule, Reaction
 import yaml
 
@@ -91,7 +90,15 @@ def main() -> None:
     coords = config.get('coords', ["educt.xyz", "product.xyz"])
     solvent = config.get('solvent', None)
     Nimages = config.get('Nimages', 8)
+    fast = config.get('fast', False)
+    zoom = config.get('zoom', False)
+    sp_method = config.get('sp_method', 'r2scanh def2-qzvpp d4')
+    name = config.get('name', None)
     steps = parse_steps(config.get('steps', DEFAULT_STEPS))
+    slurm_params_low_mem = config.get(
+        'slurm_params_low_mem', SLURM_PARAMS_BIG_LOW_MEM)
+    slurm_params_high_mem = config.get("slurm_params_high_mem",
+                                       SLURM_PARAMS_BIG_HIGH_MEM)
 
     print("Starting Pipeline with parameters:")
     print(config)
@@ -106,27 +113,35 @@ def main() -> None:
     mol = None
     reaction = None
     if len(coords) == 1:
-        name = os.path.basename(coords[0]).split('.')[0]
+        name = os.path.basename(coords[0]).split('.')[0] if not name else name
         mol = Molecule.from_xyz(
-            filepath=coords[0], charge=charge, mult=mult, solvent=solvent, name=name, method=method)
+            filepath=coords[0], charge=charge, mult=mult, solvent=solvent, name=name, method=method, sp_method=sp_method)  # Molecule
     elif len(coords) == 2:
+        name = "Reaction" if not name else name
 
         reaction = Reaction.from_xyz(
-            educt_filepath=coords[0], product_filepath=coords[1], transition_state_filepath=None, nimages=Nimages, method=method, charge=charge, mult=mult, solvent=solvent)  # Reaction
+            educt_filepath=coords[0], product_filepath=coords[1], transition_state_filepath=None, nimages=Nimages, method=method, charge=charge, mult=mult, solvent=solvent, sp_method=sp_method, name=name, fast=fast, zoom=zoom)  # Reaction
 
     elif len(coords) == 3:
+        name = "Reaction" if not name else name
         reaction = Reaction.from_xyz(
-            educt_filepath=coords[0], product_filepath=coords[1], transition_state_filepath=coords[2], nimages=Nimages, method=method, charge=charge, mult=mult, solvent=solvent)  # Reaction  # Reaction
+            educt_filepath=coords[0], product_filepath=coords[1], transition_state_filepath=coords[2], nimages=Nimages, method=method, charge=charge, mult=mult, solvent=solvent, name=name, fast=fast, zoom=zoom)  # Reaction  # Reaction
+    else:
+        print("Error: Invalid number of coordinate files provided.")
+        return
+    target = reaction if reaction else mol
 
-    print(mol)
-    print(reaction)
     hpc_driver = HPCDriver()
-    step_runner = StepRunner(hpc_driver, reaction=reaction, molecule=mol,)
+    step_runner = StepRunner(hpc_driver=hpc_driver,
+                             target=target, steps=steps, home_dir=os.getcwd(), slurm_params_low_mem=slurm_params_low_mem, slurm_params_high_mem=slurm_params_high_mem,)
     # continue here
-    pipeline_manager = PipelineManager(step_runner)
 
-    # Run the pipeline
-    pipeline_manager.run_pipeline(steps=steps)
+    success = step_runner.run_pipeline(steps=steps)
+
+    if success:
+        print("Pipeline completed successfully.")
+    else:
+        print("Pipeline failed check logs for more information.")
 
 
 if __name__ == "__main__":

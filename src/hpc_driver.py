@@ -10,10 +10,7 @@ import sys
 import subprocess
 import time
 from typing import List, Optional
-from constants import SSUBO, CHECK_STATES 
-
-
-
+from constants import SSUBO, CHECK_STATES
 
 
 class HPCDriver:
@@ -66,7 +63,8 @@ class HPCDriver:
         Submits a job to SLURM using the configured submit command.
         Parses and returns the job ID from stdout.
         """
-        command = self.submit_cmd + ["-w", walltime, "-o", output_file, input_file]
+        command = self.submit_cmd + \
+            ["-w", walltime, "-o", output_file, input_file]
         result = self.run_subprocess(command)
         if not result:
             print(f"Failed to submit job with input '{input_file}'")
@@ -107,7 +105,8 @@ class HPCDriver:
                     if latest_status in self.check_states:
                         return latest_status
                     else:
-                        print(f'Job {job_id} ended with status: {latest_status}')
+                        print(
+                            f'Job {job_id} ended with status: {latest_status}')
                         return latest_status
                 else:
                     if sacct and sacct.stderr.strip():
@@ -123,6 +122,16 @@ class HPCDriver:
 
     def shell_command(self, command: str) -> Optional[subprocess.CompletedProcess]:
         """
-        Runs an arbitrary shell command for convenience (e.g., grep, cp, rm).
+        Wrapper to run an arbitrary shell command for convenience (e.g., grep, cp, rm).
         """
         return self.run_subprocess(command, shell=True, check=False, exit_on_error=False)
+
+    def grep_output(self, pattern: str, file_path: str) -> str:
+        """
+        Wrapper around grep to return matched lines as a string.
+        """
+        command = f"grep '{pattern}' {file_path}"
+        result = self.shell_command(command)
+        if result and result.stdout:
+            return result.stdout.strip()
+        return ""
