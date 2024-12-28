@@ -148,7 +148,7 @@ class StepRunner:
             self.target, Molecule) else self.target.educt.mult
         solvent = self.target.solvent if isinstance(
             self.target, Molecule) else self.target.educt.solvent
-        Nimages = self.target.Nimages if isinstance(
+        Nimages = self.target.nimages if isinstance(
             self.target, Reaction) else 0
         self.save_initial_state(
             step=steps[0], charge=self.target.charge, mult=mult, solvent=solvent, Nimages=Nimages)
