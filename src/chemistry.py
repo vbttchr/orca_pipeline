@@ -360,6 +360,12 @@ class Molecule:
         Runs an Intrinsic Reaction Coordinate (IRC) calculation from an optimized TS.
         Checks for 'HURRAY' in 'IRC.out'. Retries with more steps if needed.
         """
+
+        if self.method.lower() == "xtb":
+            print(
+                "IRC calculation will not be conducted with semiemporical methods. Switching to r2scan-3c. If TS was optimised with other method indicate in the input.")
+
+            self.method = "r2scan-3c"
         trial += 1
         print(f"[IRC] Trial {trial} with maxiter={maxiter}")
         if trial > upper_limit:

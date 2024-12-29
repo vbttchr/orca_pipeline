@@ -60,34 +60,35 @@ class StepRunner:
                     self.target.product = Molecule.from_xyz(filepath="OPT/product.xyz", charge=self.target.product.charge, mult=self.target.product.mult,
                                                             solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product")
                 case "TS":
-                    if self.target.transition_state is None:
-                        if not os.path.exists("NEB"):
-                            logging.error(
-                                "Cannot resume TS without NEB step providing a guess.")
-                            sys.exit(1)
-                        self.target.educt = Molecule.from_xyz(filepath="NEB/educt.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult,
-                                                              solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="educt")
-                        self.target.product = Molecule.from_xyz(filepath="NEB/product.xyz", charge=self.target.product.charge, mult=self.target.product.mult,
-                                                                solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product")
-                        if os.path.exists("TS"):
-                            self.target.transition_state = Molecule.from_xyz(filepath="TS/ts_guess.xyz", charge=self.target.educt.charge,
-                                                                             mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="ts_guess")
-                        else:
-                            file_path = ""
-
-                            pattern = "NEB/*TS_converged.xyz"
-                            matches = glob.glob(pattern)
-                            if matches:
-                                file_path = matches[0]
+                    if isinstance(self.target, Reaction):
+                        if self.target.transition_state is None:
+                            if not os.path.exists("NEB"):
+                                logging.error(
+                                    "Cannot resume TS without NEB step providing a guess.")
+                                sys.exit(1)
+                            self.target.educt = Molecule.from_xyz(filepath="NEB/educt.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult,
+                                                                  solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="educt")
+                            self.target.product = Molecule.from_xyz(filepath="NEB/product.xyz", charge=self.target.product.charge, mult=self.target.product.mult,
+                                                                    solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product")
+                            if os.path.exists("TS"):
+                                self.target.transition_state = Molecule.from_xyz(filepath="TS/ts_guess.xyz", charge=self.target.educt.charge,
+                                                                                 mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="ts_guess")
                             else:
-                                pattern = "NEB/*CI_converged.xyz"
+                                file_path = ""
+
+                                pattern = "NEB/*TS_converged.xyz"
                                 matches = glob.glob(pattern)
                                 if matches:
                                     file_path = matches[0]
-                            print(f"Using {file_path} as TS guess")
+                                else:
+                                    pattern = "NEB/*CI_converged.xyz"
+                                    matches = glob.glob(pattern)
+                                    if matches:
+                                        file_path = matches[0]
+                                print(f"Using {file_path} as TS guess")
 
-                            self.target.transition_state = Molecule.from_xyz(filepath=file_path, charge=self.target.educt.charge,
-                                                                             mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="ts_guess")
+                                self.target.transition_state = Molecule.from_xyz(filepath=file_path, charge=self.target.educt.charge,
+                                                                                 mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="ts_guess")
                 case "IRC":
                     if not os.path.exists("TS"):
                         logging.error(
