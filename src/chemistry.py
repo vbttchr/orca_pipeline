@@ -247,11 +247,13 @@ class Molecule:
             if driver.grep_output('VIBRATIONAL FREQUENCIES', f'{self.name}_freq.out'):
                 print('[FREQ] Calculation completed successfully.')
                 if ts:
+
                     output = driver.grep_output(
-                        '**imaginary mode***', 'freq.out')
+                        '**imaginary mode***', f'{self.name}_freq.out')
                     match = re.search(r'(-?\d+\.\d+)\s*cm\*\*-1', output)
                     if match:
                         imag_freq = float(match.group(1))
+
                         if imag_freq < FREQ_THRESHOLD:
                             print('[FREQ] Negative frequency found (TS).')
                             return True
@@ -696,7 +698,7 @@ class Reaction:
             # TODO we need a retry mechanism here if ssubo is to slow.
             if os.path.exists(ts_xyz):
                 potential_ts = Molecule.from_xyz(
-                    ts_xyz, charge=self.charge, mult=self.mult, solvent=self.solvent, name="ts")
+                    ts_xyz, charge=self.charge, mult=self.mult, solvent=self.solvent, name="ts", method=self.method, sp_method=self.sp_method)
                 slurm_params_freq = slurm_params
                 slurm_params_freq["maxcore"] = slurm_params_freq["maxcore"]*4
                 freq_success = potential_ts.freq_job(
