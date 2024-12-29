@@ -10,7 +10,7 @@ import sys
 import subprocess
 import time
 from typing import List, Optional
-from constants import SSUBO, CHECK_STATES
+from orca_pipeline.constants import SSUBO, CHECK_STATES
 
 
 class HPCDriver:

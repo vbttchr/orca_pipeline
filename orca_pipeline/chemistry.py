@@ -8,9 +8,9 @@ import shutil
 import concurrent.futures
 
 # Own imports
-from constants import MAX_TRIALS, RETRY_DELAY, FREQ_THRESHOLD
+from orca_pipeline.constants import MAX_TRIALS, RETRY_DELAY, FREQ_THRESHOLD
 
-from hpc_driver import HPCDriver
+from orca_pipeline.hpc_driver import HPCDriver
 
 # TODO put functions from step_runner here. Step Runer is just and orchestrator of the steps.
 

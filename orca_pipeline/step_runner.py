@@ -6,9 +6,10 @@ import shutil
 import glob
 import sys
 from typing import List, Callable, Dict, Union
-from chemistry import Reaction, Molecule  # Ensure correct import paths
-from hpc_driver import HPCDriver
-from constants import MAX_TRIALS, RETRY_DELAY, SLURM_PARAMS_BIG_HIGH_MEM, SLURM_PARAMS_BIG_LOW_MEM, DEFAULT_STEPS
+
+from orca_pipeline.chemistry import Reaction, Molecule  # Ensure correct import paths
+from orca_pipeline.hpc_driver import HPCDriver
+from orca_pipeline.constants import MAX_TRIALS, RETRY_DELAY, SLURM_PARAMS_BIG_HIGH_MEM, SLURM_PARAMS_BIG_LOW_MEM, DEFAULT_STEPS
 # Configure logging
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
