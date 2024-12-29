@@ -242,10 +242,10 @@ class Molecule:
             job_id_freq, step='Freq')
 
         if status_freq == 'COMPLETED':
-            if self.grep_output('VIBRATIONAL FREQUENCIES', f'{self.name}_freq.out'):
+            if driver.grep_output('VIBRATIONAL FREQUENCIES', f'{self.name}_freq.out'):
                 print('[FREQ] Calculation completed successfully.')
                 if ts:
-                    output = self.grep_output(
+                    output = driver.grep_output(
                         '**imaginary mode***', 'freq.out')
                     match = re.search(r'(-?\d+\.\d+)\s*cm\*\*-1', output)
                     if match:
@@ -382,7 +382,7 @@ class Molecule:
             f"{self.name}_IRC.inp", f"{self.name}_IRC_slurm.out")
         status = driver.check_job_status(job_id, step="IRC")
 
-        if status == 'COMPLETED' and 'HURRAY' in self.grep_output('HURRAY', f'{self.name}_IRC.out'):
+        if status == 'COMPLETED' and 'HURRAY' in driver.grep_output('HURRAY', f'{self.name}_IRC.out'):
             print("[IRC] IRC completed successfully.")
 
             return True
@@ -593,7 +593,7 @@ class Reaction:
             f"{self.name}_neb-CI.inp", f"{self.name}_neb-ci_slurm.out", walltime="72")
         status = driver.check_job_status(job_id, step="NEB-CI")
 
-        if status == 'COMPLETED' and 'H U R R A Y' in self.grep_output('H U R R A Y', 'neb-CI.out'):
+        if status == 'COMPLETED' and 'H U R R A Y' in driver.grep_output('H U R R A Y', 'neb-CI.out'):
             print('[NEB_CI] Completed successfully.')
             time.sleep(20)
             pot_ts = Molecule.from_xyz(
@@ -684,7 +684,7 @@ class Reaction:
         status = driver.check_job_status(job_id, step="NEB_TS")
 
         out_name = neb_input_name.rsplit(".", 1)[0] + ".out"
-        if status == 'COMPLETED' and 'HURRAY' in self.grep_output('HURRAY', out_name):
+        if status == 'COMPLETED' and 'HURRAY' in driver.grep_output('HURRAY', out_name):
             print(
                 '[NEB_TS] NEB converged successfully. Checking frequency of TS structure...')
             # Typically the NEB TS is in something like: neb-TS_NEB-TS_converged.xyz
@@ -713,7 +713,7 @@ class Reaction:
 
                     return "failed", False
 
-        elif self.grep_output('ORCA TERMINATED NORMALLY', f'{neb_input_name.rsplit(".", 1)[0]}.out'):
+        elif driver.grep_output('ORCA TERMINATED NORMALLY', f'{neb_input_name.rsplit(".", 1)[0]}.out'):
             print("ORCA has terminated normally, optimisation did not converge.")
             print("Restart neb with more precise settings, use ")
             driver.scancel_job(job_id)
