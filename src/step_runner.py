@@ -272,8 +272,10 @@ class StepRunner:
         logging.info("Starting IRC job.")
         if isinstance(self.target, Reaction):
             self.make_folder("IRC")
+
             self.hpc_driver.shell_command(
-                f"cp TS/{self.target.name}_freq.hess IRC/TS.xyz")
+                f"cp TS/{self.target.transition_state.name}_freq.hess IRC/TS.xyz")
+            os.chdir("IRC")
             return self.target.transition_state.irc_job(self.hpc_driver, self.slurm_params_low_mem, trial=0, upper_limit=MAX_TRIALS)
         elif isinstance(self.target, Molecule):
             return self.target.irc_job(self.hpc_driver, self.slurm_params_low_mem, trial=0, upper_limit=MAX_TRIALS)
