@@ -55,9 +55,9 @@ class StepRunner:
                         logging.error(
                             "Cannot resume NEB-TS without OPT step.")
                         sys.exit(1)
-                    self.target.educt = Molecule.from_xyz(filepath="OPT/educt.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult,
+                    self.target.educt = Molecule.from_xyz(filepath="OPT/educt_opt.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult,
                                                           solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="educt")
-                    self.target.product = Molecule.from_xyz(filepath="OPT/product.xyz", charge=self.target.product.charge, mult=self.target.product.mult,
+                    self.target.product = Molecule.from_xyz(filepath="OPT/product_opt.xyz", charge=self.target.product.charge, mult=self.target.product.mult,
                                                             solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product")
                 case "TS":
                     if isinstance(self.target, Reaction):
