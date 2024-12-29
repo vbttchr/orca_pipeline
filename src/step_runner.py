@@ -173,6 +173,7 @@ class StepRunner:
         success = self.pipeline(step)
         if success:
             self.update_state(step)
+            self.save_state()
         else:
             logging.error(f"Step '{step}' failed.")
         return success
@@ -256,7 +257,8 @@ class StepRunner:
         if isinstance(self.target, Reaction):
             self.make_folder("TS")
 
-            self.hpc_driver.shell_command("cp NEB/*.hess TS/guess.hess")
+            self.hpc_driver.shell_command(
+                f"cp NEB/{self.target.transition_state.name}_freq.hess TS/guess.hess")
             os.chdir("TS")
 
             return self.target.transition_state.ts_opt(self.hpc_driver, self.slurm_params_high_mem, trial=0, upper_limit=MAX_TRIALS)
@@ -272,9 +274,9 @@ class StepRunner:
         logging.info("Starting IRC job.")
         if isinstance(self.target, Reaction):
             self.make_folder("IRC")
-
+            print()
             self.hpc_driver.shell_command(
-                f"cp TS/{self.target.transition_state.name}_freq.hess IRC/TS.xyz")
+                f"cp TS/{self.target.transition_state.name}_freq.hess IRC/")
             os.chdir("IRC")
             return self.target.transition_state.irc_job(self.hpc_driver, self.slurm_params_low_mem, trial=0, upper_limit=MAX_TRIALS)
         elif isinstance(self.target, Molecule):

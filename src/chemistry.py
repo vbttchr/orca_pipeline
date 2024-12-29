@@ -332,6 +332,7 @@ class Molecule:
             print("[TS_OPT] TS optimization succeeded.")
             self.update_coords_from_xyz(
                 f"{self.name}_TS_opt.xyz")
+            self.name = "ts"
 
             if self.freq_job(driver, slurm_params, ts=True):
 
@@ -340,6 +341,7 @@ class Molecule:
                 print(
                     "[TS_OPT] TS has no significant imaginary frequency. Check negative mode of guess.")
                 self.update_coords_from_xyz("ts_guess.xyz")
+                self.name = "ts_guess"
 
                 return False
 
@@ -373,8 +375,6 @@ class Molecule:
 
             self.to_xyz(f"{self.name}_TS_opt.xyz")
 
-            os.chdir("IRC")
-
             # Run freq job to ensure negative frequency for TS
             if not self.freq_job(driver=driver, slurm_params=slurm_params, ts=True):
                 print("[IRC] TS frequency job invalid. Aborting IRC.")
@@ -384,7 +384,7 @@ class Molecule:
 
         irc_input = (
             f"!{self.method} IRC tightscf {solvent_formatted}\n"
-            f"%irc\n  maxiter {maxiter}\n  InitHess read\n  Hess_Filename \"freq.hess\"\nend\n"
+            f"%irc\n  maxiter {maxiter}\n  InitHess read\n  Hess_Filename \"{self.name}_freq.hess\"\nend\n"
             f"%pal nprocs {slurm_params['nprocs']} end\n"
             f"%maxcore {slurm_params['maxcore']}\n"
             f"*xyzfile {self.charge} {self.mult} \n"
@@ -613,7 +613,7 @@ class Reaction:
             print('[NEB_CI] Completed successfully.')
             time.sleep(20)
             pot_ts = Molecule.from_xyz(
-                f"{self.name}_neb-CI_NEB-CI_converged.xyz", charge=self.charge, mult=self.mult, solvent=self.solvent, method="r2scan-3c", name="ts")
+                f"{self.name}_neb-CI_NEB-CI_converged.xyz", charge=self.charge, mult=self.mult, solvent=self.solvent, method="r2scan-3c", name="ts_guess")
 
             slurm_params_freq = slurm_params.copy()
             # a bit conservative maybe double is enough
@@ -710,7 +710,7 @@ class Reaction:
             # TODO we need a retry mechanism here if ssubo is to slow.
             if os.path.exists(ts_xyz):
                 potential_ts = Molecule.from_xyz(
-                    ts_xyz, charge=self.charge, mult=self.mult, solvent=self.solvent, name="ts", method=self.method, sp_method=self.sp_method)
+                    ts_xyz, charge=self.charge, mult=self.mult, solvent=self.solvent, name="ts_guess", method=self.method, sp_method=self.sp_method)
                 slurm_params_freq = slurm_params
                 slurm_params_freq["maxcore"] = slurm_params_freq["maxcore"]*4
                 freq_success = potential_ts.freq_job(
