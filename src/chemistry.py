@@ -548,17 +548,17 @@ class Reaction:
         product_strs = " + ".join(self.product)
         return f"{reactant_strs} => {product_strs}"
 
-    @ classmethod
-    def from_xyz(cls, educt_filepath: str, product_filepath: str, transition_state_filepath: str = None, nimages: int = 16, method: str = "r2scan-3c", charge: int = 0, mult: int = 1, solvent: str = None, sp_method="r2scanh def2-qzvpp d4", name: str = "reaction", fast: bool = False, zoom: bool = False) -> 'Reaction':
+    @classmethod
+    def from_xyz(cls, educt_filepath: str, product_filepath: str, transition_state_filepath: str = None, nimages: int = 16, method: str = "r2scan-3c", charge: int = 0, mult: int = 1, solvent: str = None, sp_method: str = "r2scanh def2-qzvpp d4", name: str = "reaction", fast: bool = False, zoom: bool = False) -> 'Reaction':
         """
-        Creates an ElementaryStep instance from XYZ files.
+        Creates an Reaction instance from XYZ files.
         """
         educt = Molecule.from_xyz(educt_filepath, charge=charge,
-                                  mult=mult, solvent=solvent, method=method, name="educt")
+                                  mult=mult, solvent=solvent, method=method, sp_method=sp_method, name="educt")
         product = Molecule.from_xyz(product_filepath, charge=charge,
-                                    mult=mult, solvent=solvent, method=method, name="product")
+                                    mult=mult, solvent=solvent, method=method, sp_method=sp_method, name="product")
         transition_state = Molecule.from_xyz(transition_state_filepath, charge=charge, mult=mult,
-                                             solvent=solvent, name="ts", method=method) if transition_state_filepath else None
+                                             solvent=solvent, name="ts", method=method, sp_method=sp_method) if transition_state_filepath else None
         return cls(educt=educt, product=product, transition_state=transition_state, nimages=nimages, method=method, solvent=solvent, sp_method=sp_method, name=name, fast=fast, zoom=zoom)
 
     def optimise_reactants(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = MAX_TRIALS) -> bool:
