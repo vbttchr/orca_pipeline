@@ -198,6 +198,7 @@ class StepRunner:
                     f"Pipeline halted due to failure in step '{step}'.")
                 with open("FAILED.out", "w") as f:
                     f.write(f"Failed at step: {step}\n")
+                self.save_state()
                 return False
 
         self.save_state()
