@@ -74,10 +74,13 @@ class StepRunner:
                                                                              mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method)
                         else:
                             file_path = ""
-                            if os.path.exists("NEB/neb-TS_converged.xyz"):
-                                file_path = "NEB/neb-TS_converged.xyz"
-                            elif os.path.exists("NEB/neb-TS.xyz"):
-                                pattern = "NEB/*_NEB-TS_converged.xyz"
+
+                            pattern = "NEB/*TS_converged.xyz"
+                            matches = glob.glob(pattern)
+                            if matches:
+                                file_path = matches[0]
+                            else:
+                                pattern = "NEB/*CI_converged.xyz"
                                 matches = glob.glob(pattern)
                                 if matches:
                                     file_path = matches[0]

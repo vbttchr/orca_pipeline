@@ -613,7 +613,7 @@ class Reaction:
             print('[NEB_CI] Completed successfully.')
             time.sleep(20)
             pot_ts = Molecule.from_xyz(
-                "neb-CI_NEB-CI_converged.xyz", charge=self.charge, mult=self.mult, solvent=self.solvent, method="r2scan-3c", name="ts")
+                f"{self.name}_neb-CI_NEB-CI_converged.xyz", charge=self.charge, mult=self.mult, solvent=self.solvent, method="r2scan-3c", name="ts")
 
             slurm_params_freq = slurm_params.copy()
             # a bit conservative maybe double is enough
