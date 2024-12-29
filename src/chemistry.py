@@ -284,6 +284,18 @@ class Molecule:
             print("[TS_OPT] Too many trials, aborting.")
             return False
 
+        if "xtb" in self.method.lower():
+            print(
+                "TS optimization will not be conducted with semiemporical methods switching to r2scan-3c .")
+            self.method = "r2scan-3c"
+            print("Calculate Hess")
+            if not self.freq_job(driver=driver, slurm_params=slurm_params, ts=True):
+                print("Guess has no significant imaginary frequency. Aborting.")
+                return False
+            else:
+                shutil.move(f'{self.name}_freq.hess',
+                            f'{self.name}_guess.hess')
+
             # step_runner handles hess copying. If run from other script, copy hess file to current directory.
         if not os.path.exists(f'{self.name}_guess.hess'):
             print("Hessian file not found. Doing freq job on guess.")
