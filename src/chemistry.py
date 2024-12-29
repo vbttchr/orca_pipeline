@@ -294,7 +294,7 @@ class Molecule:
             self.to_xyz("ts_guess.xyz")
 
         # TODO use tightopt settings for TS optimization
-        solvent_formatted = f"CPCM({self.reaction.educt.solvent})" if self.reaction.educt.solvent else ""
+        solvent_formatted = f"CPCM({self.solvent})" if self.solvent else ""
 
         ts_input = (
             f"!{self.method} OptTS tightscf {solvent_formatted}\n"
@@ -364,7 +364,7 @@ class Molecule:
                 print("[IRC] TS frequency job invalid. Aborting IRC.")
                 return False
 
-        solvent_formatted = f"CPCM({self.reaction.educt.solvent})" if self.reaction.educt.solvent else ""
+        solvent_formatted = f"CPCM({self.educt.solvent})" if self.educt.solvent else ""
 
         irc_input = (
             f"!{self.method} IRC tightscf {solvent_formatted}\n"
@@ -472,6 +472,10 @@ class Molecule:
         driver.shell_command(
             f"xtb {self.name}_before_crest.xyz --opt --charge {self.charge} --uhf {self.mult -1} {solvent}")
 
+        if not os.path.exists("xtbopt.xyz"):
+            print("Optimization failed. Aborting.")
+            return False
+
         """
         generates crest ensembel
         """
@@ -557,29 +561,29 @@ class Reaction:
         """
         trial += 1
         print(
-            f"[NEB_CI] Trial {trial}, Nimages={self.reaction.nimages}, Method={self.reaction.method}")
+            f"[NEB_CI] Trial {trial}, Nimages={self.nimages}, Method={self.method}")
         if trial > upper_limit:
             print('[NEB_CI] Too many trials aborting.')
             return False
 
         if trial == 1:
 
-            self.reaction.educt.to_xyz("educt.xyz")
-            self.reaction.product.to_xyz("product.xyz")
+            self.educt.to_xyz("educt.xyz")
+            self.product.to_xyz("product.xyz")
         solvent_formatted = ""
-        if self.reaction.solvent:
+        if self.solvent:
 
-            solvent_formatted = f"ALPB({self.reaction.solvent})" if "xtb" in self.reaction.method.lower(
-            ) else f"CPCM({self.reaction.solvent})"
+            solvent_formatted = f"ALPB({self.solvent})" if "xtb" in self.method.lower(
+            ) else f"CPCM({self.solvent})"
 
         neb_method = "NEB-CI" if not self.zoom else "ZOOM-NEB-CI"
 
         neb_input = (
-            f"! {neb_method} {self.reaction.method} {solvent_formatted}  tightscf\n"
+            f"! {neb_method} {self.method} {solvent_formatted}  tightscf\n"
             f"%pal nprocs {slurm_params['nprocs']} end\n"
             f"%maxcore {slurm_params['maxcore']}\n"
-            f"%neb\n  Product \"product.xyz\"\n  NImages {self.reaction.nimages} \nend\n"
-            f"*xyzfile {self.reaction.educt.charge} {self.reaction.educt.mult} educt.xyz\n"
+            f"%neb\n  Product \"product.xyz\"\n  NImages {self.nimages} \nend\n"
+            f"*xyzfile {self.charge} {self.mult} educt.xyz\n"
         )
 
         with open(f'{self.name}_neb-CI.inp', 'w') as f:
@@ -593,7 +597,7 @@ class Reaction:
             print('[NEB_CI] Completed successfully.')
             time.sleep(20)
             pot_ts = Molecule.from_xyz(
-                "neb-CI_NEB-CI_converged.xyz", charge=self.reaction.educt.charge, mult=self.reaction.educt.mult, solvent=self.reaction.educt.solvent, method="r2scan-3c", name="ts")
+                "neb-CI_NEB-CI_converged.xyz", charge=self.charge, mult=self.mult, solvent=self.solvent, method="r2scan-3c", name="ts")
 
             slurm_params_freq = slurm_params.copy()
             # a bit conservative maybe double is enough
@@ -605,7 +609,7 @@ class Reaction:
                 return True
             else:
                 print("TS has no significant imag freq Retry with refined method")
-                if self.reaction.nimages == 24:
+                if self.nimages == 24:
                     print("Max number of images reached ")
 
                     return False
@@ -613,7 +617,7 @@ class Reaction:
                 time.sleep(RETRY_DELAY)
                 self.hpc_driver.shell_command(
                     "rm -rf *.gbw pmix* *densities* freq.inp slurm* *neb*.inp")
-                self.reaction.nimages += 4
+                self.nimages += 4
                 return self.neb_ci(trial, upper_limit)
         else:
             print('[NEB_CI] Job failed or did not converge. Retrying...')
@@ -647,28 +651,28 @@ class Reaction:
         # On first NEB trial, create NEB folder if not existing
         if trial == 1:
 
-            self.reaction.educt.to_xyz("educt.xyz")
-            self.reaction.product.to_xyz("product.xyz")
+            self.educt.to_xyz("educt.xyz")
+            self.product.to_xyz("product.xyz")
 
         geom_block = ""
 
-        if "xtb" in self.reaction.method.lower():
-            maxiter = len(self.reaction.educt.atoms) * 4
+        if "xtb" in self.method.lower():
+            maxiter = len(self.educt.atoms) * 4
             geom_block = f"%geom\n Calc_Hess true\n Recalc_Hess 1\n MaxIter={maxiter} end\n"
         neb_block = "Fast-NEB-TS" if self.fast else "NEB-TS"
         neb_block = "ZOOM-NEB-TS" if self.zoom else neb_block
 
         solvent_formatted = ""
-        if self.reaction.educt.solvent:
-            solvent_formatted = f"ALPB({self.reaction.solvent})" if "xtb" in self.reaction.method.lower(
-            ) else f"CPCM({self.reaction.solvent})"
+        if self.solvent:
+            solvent_formatted = f"ALPB({self.solvent})" if "xtb" in self.method.lower(
+            ) else f"CPCM({self.solvent})"
         neb_input = (
-            f"! {self.reaction.method} {neb_block} {solvent_formatted} tightscf\n"
+            f"! {self.method} {neb_block} {solvent_formatted} tightscf\n"
             f"{geom_block}"
             f"%pal nprocs {slurm_params['nprocs']} end\n"
             f"%maxcore {slurm_params['maxcore']}\n"
-            f"%neb\n   Product \"product.xyz\"\n   NImages {self.reaction.nimages}\n  end\n"
-            f"*xyzfile {self.reaction.educt.charge} {self.reaction.educt.mult} educt.xyz\n"
+            f"%neb\n   Product \"product.xyz\"\n   NImages {self.nimages}\n  end\n"
+            f"*xyzfile {self.charge} {self.mult} educt.xyz\n"
         )
 
         neb_input_name = "neb-fast-TS.inp" if self.fast else "neb-TS.inp"
@@ -690,14 +694,14 @@ class Reaction:
             # TODO we need a retry mechanism here if ssubo is to slow.
             if os.path.exists(ts_xyz):
                 potential_ts = Molecule.from_xyz(
-                    ts_xyz, charge=self.reaction.educt.charge, mult=self.reaction.educt.mult, solvent=self.reaction.educt.solvent, name="ts")
+                    ts_xyz, charge=self.charge, mult=self.mult, solvent=self.solvent, name="ts")
                 slurm_params_freq = slurm_params
                 slurm_params_freq["maxcore"] = slurm_params_freq["maxcore"]*4
                 freq_success = potential_ts.freq_job(
                     driver=driver, slurm_params=slurm_params_freq, ts=True)
                 if freq_success:
                     # Copy the final TS structure to a known file
-                    self.reaction.transition_state = potential_ts
+                    self.transition_state = potential_ts
 
                     return "", True
                 else:
