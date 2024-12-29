@@ -258,9 +258,9 @@ class StepRunner:
             self.hpc_driver.shell_command("cp NEB/*.hess TS/guess.hess")
             os.chdir("TS")
 
-            return self.target.transition_state.ts_opt(self.hpc_driver, self.slurm_params, trial=0, upper_limit=MAX_TRIALS)
+            return self.target.transition_state.ts_opt(self.hpc_driver, self.slurm_params_high_mem, trial=0, upper_limit=MAX_TRIALS)
         elif isinstance(self.target, Molecule):
-            return self.target.ts_opt(self.hpc_driver, self.slurm_params, trial=0, upper_limit=MAX_TRIALS)
+            return self.target.ts_opt(self.hpc_driver, self.slurm_params_high_mem, trial=0, upper_limit=MAX_TRIALS)
         else:
 
             logging.error(
