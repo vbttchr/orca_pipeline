@@ -217,7 +217,7 @@ class Molecule:
         if trial > upper_limit:
             print("[FREQ] Too many trials, aborting.")
             return False
-
+        solvent_formatted
         if self.solvent:
 
             if "xtb" in self.method.lower():
