@@ -71,7 +71,7 @@ class StepRunner:
                                                                 solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method)
                         if os.path.exists("TS"):
                             self.target.transition_state = Molecule.from_xyz(filepath="TS/ts_guess.xyz", charge=self.target.educt.charge,
-                                                                             mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method)
+                                                                             mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="ts")
                         else:
                             file_path = ""
 

@@ -266,8 +266,8 @@ class Molecule:
                 return True
 
         print('[FREQ] Job failed or no frequencies found. Retrying...')
-        self.hpc_driver.scancel_job(job_id_freq)
-        self.hpc_driver.shell_command(
+        driver.scancel_job(job_id_freq)
+        driver.shell_command(
             "rm -rf *.gbw pmix* *densities*  slurm*")
         return self.freq_job(driver=driver, slurm_params=slurm_params, trial=trial, upper_limit=upper_limit, ts=ts)
 
@@ -464,7 +464,7 @@ class Molecule:
         print("[SP] Failed or not converged. Retrying...")
         driver.scancel_job(job_id)
         time.sleep(RETRY_DELAY)
-        self.hpc_driver.shell_command(
+        driver.shell_command(
             "rm -rf *.gbw pmix* *densities* SP.inp slurm*")
         return self.sp_calc(driver=driver, slurm_params=slurm_params, trial=trial, upper_limit=upper_limit)
 
@@ -629,9 +629,9 @@ class Reaction:
                     print("Max number of images reached ")
 
                     return False
-                self.hpc_driver.scancel_job(job_id)
+                driver.scancel_job(job_id)
                 time.sleep(RETRY_DELAY)
-                self.hpc_driver.shell_command(
+                driver.shell_command(
                     "rm -rf *.gbw pmix* *densities* freq.inp slurm* *neb*.inp")
                 self.nimages += 4
                 return self.neb_ci(trial, upper_limit)
