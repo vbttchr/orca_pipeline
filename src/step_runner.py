@@ -138,10 +138,10 @@ class StepRunner:
 
     def update_state(self, step: str) -> None:
         self.state["last_completed_step"] = step
-        self.state["charge"] = self.charge
-        self.state["mult"] = self.mult
-        self.state["solvent"] = self.solvent
-        self.state["Nimages"] = self.nimages
+        self.state["charge"] = self.target.charge
+        self.state["mult"] = self.target.mult
+        self.state["solvent"] = self.target.solvent
+        self.state["Nimages"] = self.target.nimages
 
     def pipeline(self, step: str) -> bool:
         """
