@@ -81,6 +81,7 @@ class StepRunner:
                                 matches = glob.glob(pattern)
                                 if matches:
                                     file_path = matches[0]
+                                print(f"Using {file_path} as TS guess")
 
                             self.target.transition_state = Molecule.from_xyz(filepath=file_path, charge=self.target.educt.charge,
                                                                              mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method)
