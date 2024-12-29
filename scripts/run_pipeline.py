@@ -12,6 +12,7 @@ maybe associate the methods of step_runner to Reaction and Molecule classes.
 import argparse
 import os
 from typing import List
+import sys
 
 from ..orca_pipeline.hpc_driver import HPCDriver
 from ..orca_pipeline.step_runner import StepRunner
@@ -19,6 +20,8 @@ from ..orca_pipeline.constants import DEFAULT_STEPS, SLURM_PARAMS_BIG_HIGH_MEM, 
 from ..orca_pipeline.chemistry import Molecule, Reaction
 import yaml
 
+sys.stdout = open(sys.stdout.fileno(), 'w', buffering=1)
+sys.stderr = open(sys.stderr.fileno(), 'w', buffering=1)
 
 """
 # config.yaml
