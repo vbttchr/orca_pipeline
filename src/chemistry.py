@@ -361,7 +361,7 @@ class Molecule:
         Checks for 'HURRAY' in 'IRC.out'. Retries with more steps if needed.
         """
 
-        if self.method.lower() == "xtb":
+        if "xtb" in self.method.lower():
             print(
                 "IRC calculation will not be conducted with semiemporical methods. Switching to r2scan-3c. If TS was optimised with other method indicate in the input.")
 
