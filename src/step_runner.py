@@ -291,11 +291,11 @@ class StepRunner:
         if isinstance(self.target, Reaction):
             self.make_folder("SP")
             os.chdir("SP")
-            return self.target.sp_calc(self.hpc_driver, self.slurm_params)
+            return self.target.sp_calc(self.hpc_driver, self.slurm_params_low_mem)
         elif isinstance(self.target, Molecule):
             self.make_folder("SP")
             os.chdir("SP")
-            return self.target.sp_calc(self.hpc_driver, self.slurm_params)
+            return self.target.sp_calc(self.hpc_driver, self.slurm_params_low_mem)
         else:
             logging.error(
                 "Unsupported target type for single point calculation.")
