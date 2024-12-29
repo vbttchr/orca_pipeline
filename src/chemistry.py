@@ -393,7 +393,7 @@ class Molecule:
             f"%irc\n  maxiter {maxiter}\n  InitHess read\n  Hess_Filename \"{self.name}_freq.hess\"\nend\n"
             f"%pal nprocs {slurm_params['nprocs']} end\n"
             f"%maxcore {slurm_params['maxcore']}\n"
-            f"*xyzfile {self.charge} {self.mult} \n"
+            f"*xyz {self.charge} {self.mult} \n"
             f"{self.get_xyz_block()}*"
         )
 
