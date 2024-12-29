@@ -615,7 +615,7 @@ class Reaction:
             f"{self.name}_neb-CI.inp", f"{self.name}_neb-ci_slurm.out", walltime="72")
         status = driver.check_job_status(job_id, step="NEB-CI")
 
-        if status == 'COMPLETED' and 'THE NEB OPTIMIZATION HAS CONVERGED' in driver.grep_output('THE NEB OPTIMIZATION HAS CONVERGED', f'{self.name}neb-CI.out'):
+        if status == 'COMPLETED' and 'THE NEB OPTIMIZATION HAS CONVERGED' in driver.grep_output('THE NEB OPTIMIZATION HAS CONVERGED', f'{self.name}_neb-CI.out'):
             print('[NEB_CI] Completed successfully.')
             time.sleep(20)
             pot_ts = Molecule.from_xyz(
