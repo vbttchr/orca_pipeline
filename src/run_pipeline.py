@@ -133,7 +133,7 @@ def main() -> None:
 
     hpc_driver = HPCDriver()
     step_runner = StepRunner(hpc_driver=hpc_driver,
-                             target=target, steps=steps, home_dir=os.getcwd(), slurm_params_low_mem=slurm_params_low_mem, slurm_params_high_mem=slurm_params_high_mem,)
+                             target=target, steps=steps, home_dir=os.getcwd(), slurm_params_low_mem=slurm_params_low_mem, slurm_params_high_mem=slurm_params_high_mem)
     # continue here
 
     success = step_runner.run_pipeline()
