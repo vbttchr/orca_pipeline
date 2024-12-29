@@ -305,11 +305,11 @@ class StepRunner:
             self.target.nimages = 16
 
             print("Need to reoptimize reactants")
-            if not self.target.optimise_reactants(
-                    self.hpc_driver, self.slurm_params_low_mem, trial=0, upper_limit=uper_limit):
+            if not self.geometry_optimisation():
                 print("Failed to reoptimize reactants.")
                 return False
             print("Reactants reoptimized. Restarting FAST-NEB-TS with r2scan.")
+            os.chdir("..")
 
             return self.neb_ts()
         elif self.target.fast:
