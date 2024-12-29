@@ -758,8 +758,8 @@ class Reaction:
         """
         Runs a single point calculation on educt transition state and product.
         """
-
-        with concurrent.future.ThreadPoolExecutor(max_workers=3) as executor:
+        results = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
             results = [
                 executor.submit(self.educt.sp_calc, driver,
                                 slurm_params, trial, upper_limit),
@@ -768,3 +768,4 @@ class Reaction:
                 executor.submit(self.transition_state.sp_calc,
                                 driver, slurm_params, trial, upper_limit)
             ]
+        return all([result.result() for result in results])
