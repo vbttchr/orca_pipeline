@@ -753,3 +753,18 @@ class Reaction:
             "rm -rf *.gbw pmix* *densities* freq.inp slurm* *neb*.inp")
 
         return self.neb_ts(driver=driver, slurm_params=slurm_params, trial=trial, upper_limit=upper_limit)
+
+    def sp_calc(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = MAX_TRIALS) -> bool:
+        """
+        Runs a single point calculation on educt transition state and product.
+        """
+
+        with concurrent.future.ThreadPoolExecutor(max_workers=3) as executor:
+            results = [
+                executor.submit(self.educt.sp_calc, driver,
+                                slurm_params, trial, upper_limit),
+                executor.submit(self.product.sp_calc, driver,
+                                slurm_params, trial, upper_limit),
+                executor.submit(self.transition_state.sp_calc,
+                                driver, slurm_params, trial, upper_limit)
+            ]
