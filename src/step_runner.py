@@ -169,9 +169,6 @@ class StepRunner:
         return step_function()
 
     def execute_step(self, step: str) -> bool:
-        if step in self.completed_steps:
-            logging.info(f"Step '{step}' already completed. Skipping.")
-            return True
 
         success = self.pipeline(step)
         if success:
@@ -276,7 +273,7 @@ class StepRunner:
         if isinstance(self.target, Reaction):
             self.make_folder("IRC")
             self.hpc_driver.shell_command(
-                f"cp TS/{self.name}_freq.hess IRC/TS.xyz")
+                f"cp TS/{self.target.name}_freq.hess IRC/TS.xyz")
             return self.target.transition_state.irc_job(self.hpc_driver, self.slurm_params_low_mem, trial=0, upper_limit=MAX_TRIALS)
         elif isinstance(self.target, Molecule):
             return self.target.irc_job(self.hpc_driver, self.slurm_params_low_mem, trial=0, upper_limit=MAX_TRIALS)
