@@ -386,7 +386,7 @@ class Molecule:
                 print("[IRC] TS frequency job invalid. Aborting IRC.")
                 return False
 
-        solvent_formatted = f"CPCM({self.educt.solvent})" if self.educt.solvent else ""
+        solvent_formatted = f"CPCM({self.solvent})" if self.solvent else ""
 
         irc_input = (
             f"!{self.method} IRC tightscf {solvent_formatted}\n"
