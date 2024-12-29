@@ -15,6 +15,7 @@ logging.basicConfig(level=logging.INFO,
 
 
 class StepRunner:
+    # TODO make naming scheme of file names better.
     def __init__(self,
                  hpc_driver: HPCDriver,
                  target: Union[Reaction, Molecule],
@@ -108,6 +109,24 @@ class StepRunner:
                         logging.erro(
                             "Cannot resume IRC step could not load TS_opt")
                         sys.exit(1)
+                case "SP":
+                    if isinstance(self.target, Reaction):
+                        if not os.path.exists("TS"):
+                            logging.error(
+                                "Cannot resume SP without TS step.")
+                            sys.exit(1)
+                        if os.path.exists("OPT"):
+                            self.target.educt = Molecule.from_xyz(filepath="OPT/educt_opt.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult,
+                                                                  solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="educt")
+                            self.target.product = Molecule.from_xyz(filepath="OPT/product_opt.xyz", charge=self.target.product.charge, mult=self.target.product.mult,
+                                                                    solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product")
+                        else:
+                            self.target.educt = Molecule.from_xyz(filepath="NEB/educt.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult,
+                                                                  solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="educt")
+                            self.target.product = Molecule.from_xyz(filepath="NEB/product.xyz", charge=self.target.product.charge, mult=self.target.product.mult,
+                                                                    solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product")
+                        self.target.transition_state = Molecule.from_xyz(filepath="TS/ts_guess_TS_opt.xyz", charge=self.target.educt.charge,
+                                                                         mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="ts_guess")
 
     def make_folder(self, dir_name: str) -> None:
         """

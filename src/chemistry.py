@@ -459,7 +459,7 @@ class Molecule:
         with open(f"{self.name}_SP.inp", "w") as f:
             f.write(sp_input)
         job_id = driver.submit_job(
-            f"{self.name}_SP.inp", f"{self.name}SP_slurm.out")
+            f"{self.name}_SP.inp", f"{self.name}_SP_slurm.out")
 
         status = driver.check_job_status(job_id, step="SP")
 
