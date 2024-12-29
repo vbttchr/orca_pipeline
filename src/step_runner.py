@@ -42,7 +42,7 @@ class StepRunner:
                 "Nimages": 0
             }
             self.state = initial_state
-        self.completed_steps = self.state.get("last_completed_steps", "")
+        self.completed_steps = self.state.get("last_completed_step", "")
         if self.completed_steps:
             index = self.steps.index(self.completed_steps)
             next_step = self.steps[index+1]
