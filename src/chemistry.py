@@ -452,6 +452,30 @@ class Molecule:
             "rm -rf *.gbw pmix* *densities* SP.inp slurm*")
         return self.sp_calc(driver=driver, slurm_params=slurm_params, trial=trial, upper_limit=upper_limit)
 
+    def get_lowest_confomers(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = 5) -> bool:
+
+        trial += 1
+        print(f"[CREST] Trial {trial} ")
+        if trial > upper_limit:
+            print("[CREST] Too many trials, aborting.")
+            return False
+
+        print(f"[CREST] Generating conformers for {self.name}")
+
+        print("CREST needs xtb2 optimized structures.")
+
+        self.to_xyz(f"{self.name}_before_crest.xyz")
+
+        # for now do everything from commnand since orca can have some problems which xtb does not have
+        solvent = f"--alpb {self.solvent}" if self.solvent else ""
+
+        driver.shell_command(
+            f"xtb {self.name}_before_crest.xyz --opt --charge {self.charge} --uhf {self.mult -1} {solvent}")
+
+        """
+        generates crest ensembel
+        """
+
 
 class Reaction:
     """
@@ -615,7 +639,7 @@ class Reaction:
 
         trial += 1
         print(
-            f"[NEB_TS] Trial {trial}, Nimages={self.reaction.nimages}, method={self.reaction.method}, fast={fast}")
+            f"[NEB_TS] Trial {trial}, Nimages={self.nimages}, method={self.method}, fast={self.fast}")
         if trial > upper_limit:
             print('[NEB_TS] Too many trials aborting.')
             return False
