@@ -469,6 +469,8 @@ class Reaction:
         self.name = name
         self.fast = fast
         self.zoom = zoom
+        self.charge = educt.charge
+        self.mult = educt.mult
 
         if educt.charge != product.charge:
             raise ValueError("Charge of educt and product must match.")
