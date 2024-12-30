@@ -1,0 +1,131 @@
+# config.yaml
+# YAML configuration file for the ORCA Pipeline
+
+# General Pipeline Settings
+steps:
+  - OPT           # Geometry Optimization
+  - NEB_TS        # Nudged Elastic Band - Transition State
+  - TS_OPT        # Transition State Optimization
+  - IRC           # Intrinsic Reaction Coordinate
+  - SP            # Single Point Calculation
+
+    #- NEB_CI        # Nudged Elastic Band - Climbing Image
+# Molecular Properties
+charge: 0              # Total charge of the molecule/reaction
+mult: 1                # Multiplicity (e.g., singlet = 1, doublet = 2)
+solvent:           # Solvent model (e.g., CPCM, ALPB). Leave empty for gas phase.
+
+# Computational Settings
+Nimages: 16            # Number of images for NEB calculations
+method: : xtb2     # Computational method for geometry optimizations
+sp_method: pbe def2-tzvp d4  # Computational method for single point calculations
+
+# Naming
+name: DA       # Optional name for the system. If not provided, defaults based on filenames.
+
+# Slurm Parameters
+# SLURM parameters for jobs requiring lower memory resources
+slurm_params_low_mem:
+  nprocs: 24            # Number of processors
+  maxcore: 1000        # Maximum core memory in MB
+
+# SLURM parameters for jobs requiring higher memory resources
+slurm_params_high_mem:
+  nprocs: 24            # Number of processors
+  maxcore: 3500       # Maximum core memory in MB
+
+# Coordinate Files
+# List of file paths to coordinate files. Depending on the number of files, the pipeline determines the type of calculation.
+# - 1 file: Single molecule optimization
+# - 2 files: Reaction without transition state
+# - 3 files: Reaction with transition state
+coords:
+  - educt.xyz     # Coordinate file for the reactant (educt)
+  - product.xyz   # Coordinate file for the product
+    #  - path/to/ts.xyz        # (Optional) Coordinate file for the transition state
+
+# Additional Settings
+fast: true               # Optional boolean to toggle fast NEB calculations (e.g., for methods not starting with "xtb")
+zoom: false               # Optional boolean to toggle ZOOM-NEB-CI methods
+
+# Example Configurations
+
+# Example 1: Single Molecule Optimization
+# Uncomment and adjust as needed
+# ---
+# steps:
+#   - OPT
+# charge: 0
+# mult: 1
+# solvent: CPCM
+# Nimages: 16
+# method: r2scan-3c
+# sp_method: r2scanh def2-qzvpp d4
+# name: Methane
+# slurm_params_low_mem:
+#   nprocs: 4
+#   maxcore: 8000
+# slurm_params_high_mem:
+#   nprocs: 8
+#   maxcore: 16000
+# coords:
+#   - path/to/methane.xyz
+
+# Example 2: Reaction without Transition State
+# Uncomment and adjust as needed
+# ---
+# steps:
+#   - OPT
+#   - NEB_CI
+#   - NEB_TS
+#   - TS_OPT
+#   - IRC
+#   - SP
+# charge: 0
+# mult: 1
+# solvent: ALPB(Water)
+# Nimages: 20
+# method: r2scan-3c
+# sp_method: r2scanh def2-qzvpp d4
+# name: EthanolDecomposition
+# slurm_params_low_mem:
+#   nprocs: 4
+#   maxcore: 8000
+# slurm_params_high_mem:
+#   nprocs: 8
+#   maxcore: 16000
+# fast: true
+# zoom: false
+# coords:
+#   - path/to/educt_ethanol.xyz
+#   - path/to/product_decomposition.xyz
+
+# Example 3: Reaction with Transition State
+# Uncomment and adjust as needed
+# ---
+# steps:
+#   - OPT
+#   - NEB_CI
+#   - NEB_TS
+#   - TS_OPT
+#   - IRC
+#   - SP
+# charge: 0
+# mult: 1
+# solvent: CPCM
+# Nimages: 25
+# method: r2scan-3c
+# sp_method: r2scanh def2-qzvpp d4
+# name: HydrogenAbstraction
+# slurm_params_low_mem:
+#   nprocs: 4
+#   maxcore: 8000
+# slurm_params_high_mem:
+#   nprocs: 8
+#   maxcore: 16000
+# fast: false
+# zoom: true
+# coords:
+#   - path/to/educt_H2.xyz
+#   - path/to/product_H2O.xyz
+#   - path/to/ts_H2O.xyz
