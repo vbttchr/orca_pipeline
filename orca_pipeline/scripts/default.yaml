@@ -9,7 +9,7 @@ steps:
 # Molecular Properties
 charge: 0              # Total charge of the molecule/reaction
 mult: 1                # Multiplicity (e.g., singlet = 1, doublet = 2)
-solvent:  
+solvent: thf
 
 # Computational Settings
 Nimages: 12            # Number of images for NEB calculations
