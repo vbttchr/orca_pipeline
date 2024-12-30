@@ -14,7 +14,7 @@ solvent:
 # Computational Settings
 Nimages: 8            # Number of images for NEB calculations
 method: r2scan-3c     # Computational method for geometry optimizations
-sp_method: rscanh def2-qzvpp d4   # Computational method for single point calculations
+sp_method: r2scanh def2-qzvpp d4   # Computational method for single point calculations
 
 # Naming
 name: Reaction       # Name of the Reaction or the molecule. Used for naming the output files
