@@ -606,10 +606,12 @@ class Reaction:
             ) else f"CPCM({self.solvent})"
 
         neb_method = "NEB-CI" if not self.zoom else "ZOOM-NEB-CI"
+        nprocs = slurm_params['nprocs'] if 4 * \
+            self.nimages < slurm_params['nprocs'] else 4*self.nimages
 
         neb_input = (
-            f"! {neb_method} {self.method} {solvent_formatted}  tightscf\n"
-            f"%pal nprocs {slurm_params['nprocs']} end\n"
+            f"! {neb_method} {self.method} {solvent_formatted}  \n"
+            f"%pal nprocs {nprocs} end\n"
             f"%maxcore {slurm_params['maxcore']}\n"
             f"%neb\n  Product \"product.xyz\"\n  NImages {self.nimages} \nend\n"
             f"*xyzfile {self.charge} {self.mult} educt.xyz\n"
@@ -692,15 +694,16 @@ class Reaction:
             geom_block = f"%geom\n Calc_Hess true\n Recalc_Hess 1\n MaxIter={maxiter} end\n"
         neb_block = "Fast-NEB-TS" if self.fast else "NEB-TS"
         neb_block = "ZOOM-NEB-TS" if self.zoom else neb_block
-
+        nprocs = slurm_params['nprocs'] if 3 * \
+            self.nimages < slurm_params['nprocs'] else 3*self.nimages
         solvent_formatted = ""
         if self.solvent:
             solvent_formatted = f"ALPB({self.solvent})" if "xtb" in self.method.lower(
             ) else f"CPCM({self.solvent})"
         neb_input = (
-            f"! {self.method} {neb_block} {solvent_formatted} tightscf\n"
+            f"! {self.method} {neb_block} {solvent_formatted} \n"
             f"{geom_block}"
-            f"%pal nprocs {slurm_params['nprocs']} end\n"
+            f"%pal nprocs {nprocs} end\n"
             f"%maxcore {slurm_params['maxcore']}\n"
             f"%neb\n   Product \"product.xyz\"\n   NImages {self.nimages}\n  end\n"
             f"*xyzfile {self.charge} {self.mult} educt.xyz\n"
