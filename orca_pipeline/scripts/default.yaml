@@ -3,7 +3,7 @@ steps:
   - NEB_CI        # Nudged Elastic Band - Transition State
   - TS        # Transition State Optimization
   - IRC           # Intrinsic Reaction Coordinate
-  - SP            # Single Point Calculation
+  #- SP            # Single Point Calculation
 
 #- NEB_CI        # Nudged Elastic Band - Climbing Image
 # Molecular Properties
@@ -17,18 +17,18 @@ method: r2scan-3c     # Computational method for geometry optimizations
 sp_method: rscanh def2-qzvpp d4   # Computational method for single point calculations
 
 # Naming
-name: DA       # Name of the Reaction or the molecule. Used for naming the output files
+name: Reaction       # Name of the Reaction or the molecule. Used for naming the output files
 
 # Slurm Parameters
 # SLURM parameters for jobs requiring lower memory resources
 slurm_params_low_mem:
   nprocs: 24            # Number of processors
-  maxcore: 2000        # Maximum core memory in MB
+  maxcore: 2500        # Maximum core memory in MB
 
 # SLURM parameters for jobs requiring higher memory resources
 slurm_params_high_mem:
   nprocs: 24            # Number of processors
-  maxcore: 3500       # Maximum core memory in MB
+  maxcore: 8500       # Maximum core memory in MB
 
 # Coordinate Files
 # List of file paths to coordinate files. Depending on the number of files, the pipeline determines the type of calculation.
