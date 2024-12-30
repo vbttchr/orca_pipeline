@@ -1,6 +1,6 @@
 steps:
   - OPT           # Geometry Optimization
-  - NEB_CI        # Nudged Elastic Band - Transition State
+  - NEB_TS        # Nudged Elastic Band - Transition State
   - TS        # Transition State Optimization
   - IRC           # Intrinsic Reaction Coordinate
   #- SP            # Single Point Calculation
@@ -12,7 +12,7 @@ mult: 1                # Multiplicity (e.g., singlet = 1, doublet = 2)
 solvent:  
 
 # Computational Settings
-Nimages: 8            # Number of images for NEB calculations
+Nimages: 12            # Number of images for NEB calculations
 method: r2scan-3c     # Computational method for geometry optimizations
 sp_method: r2scanh def2-qzvpp d4   # Computational method for single point calculations
 
