@@ -80,7 +80,7 @@ class Molecule:
             raise ValueError("Multiplicity must be at least 1.")
 
     @classmethod
-    def from_xyz(cls, filepath: str, charge: int, mult: int, solvent: str = None, name: str = "mol", method: str = "r2scan-3c", sp_method="r2scanh def2-qzvpp d4") -> 'Molecule':
+    def from_xyz(cls, filepath: str, charge: int, mult: int, solvent: str = None, name: str = None, method: str = "r2scan-3c", sp_method="r2scanh def2-qzvpp d4") -> 'Molecule':
         """
         Creates a Molecule instance from an XYZ file.
         """
@@ -162,7 +162,7 @@ class Molecule:
                 solvent_formatted = f"CPCM({self.solvent})"
 
         if trial == 1:
-            self.to_xyz(f"{self.name}_start.xyz")
+            self.to_xyz(f"{self.name}.xyz")
 
         print(f"Starting optimisation of {self.name}")
 
@@ -182,8 +182,7 @@ class Molecule:
             f.write(input)
 
         # Submit jobs
-
-        out_file = f"{self.name}_slurm.out"
+        out_file = f"{input_name.split('.')[0]}_slurm.out"
         job_id = driver.submit_job(f"{input_name}", out_file)
         status = driver.check_job_status(job_id)
 
@@ -194,6 +193,7 @@ class Molecule:
                 print("[OPT] Optimisation jobs completed.")
 
                 self.update_coords_from_xyz(f"{input_name.split('.')[0]}.xyz")
+                self.name = f'{self.name}_opt'
 
                 # directories are handle by step_runner or custom script.
                 return True
@@ -235,21 +235,23 @@ class Molecule:
             f"*xyz {self.charge} {self.mult}\n"
             f"{self.get_xyz_block()}  *"
         )
-        with open(f'{self.name}_freq.inp', 'w') as f:
+
+        input_name = f"{self.name}_freq.inp"
+        with open(input_name, 'w') as f:
             f.write(freq_input)
 
         job_id_freq = driver.submit_job(
-            f"{self.name}_freq.inp", f"{self.name}_freq_slurm.out")
+            input_name, input_name.split('.')[0] + '_slurm.out')
         status_freq = driver.check_job_status(
             job_id_freq, step='Freq')
 
         if status_freq == 'COMPLETED':
-            if driver.grep_output('VIBRATIONAL FREQUENCIES', f'{self.name}_freq.out'):
+            if driver.grep_output('VIBRATIONAL FREQUENCIES', input_name.split('.')[0] + '.out'):
                 print('[FREQ] Calculation completed successfully.')
                 if ts:
 
                     output = driver.grep_output(
-                        '**imaginary mode***', f'{self.name}_freq.out')
+                        '**imaginary mode***', input_name.split('.')[0] + '.out')
                     match = re.search(r'(-?\d+\.\d+)\s*cm\*\*-1', output)
                     if match:
                         imag_freq = float(match.group(1))
@@ -312,6 +314,8 @@ class Molecule:
         # TODO use tightopt settings for TS optimization
         solvent_formatted = f"CPCM({self.solvent})" if self.solvent else ""
 
+        input_name = f"{self.name}_TS_opt.inp"
+
         ts_input = (
             f"!{self.method} OptTS tightscf {solvent_formatted}\n"
             f"%geom\ninhess read\ninhessname \"{self.name}_guess.hess\"\nCalc_Hess true\n recalc_hess 15\n end\n"
@@ -321,17 +325,17 @@ class Molecule:
             f"{self.get_xyz_block()}*"
         )
 
-        with open(f"{self.name}_TS_opt.inp", "w") as f:
+        with open(input_name, "w") as f:
             f.write(ts_input)
 
         job_id = driver.submit_job(
-            f"{self.name}_TS_opt.inp", f"{self.name}_TS_opt_slurm.out", walltime="48")
+            input_name, input_name.split('.')[0] + '_slurm.out', walltime="48")
         status = driver.check_job_status(job_id, step="TS_OPT")
 
-        if status == 'COMPLETED' and 'HURRAY' in driver.grep_output('HURRAY', f'{self.name}_TS_opt.out'):
+        if status == 'COMPLETED' and 'HURRAY' in driver.grep_output('HURRAY', input_name.split('.')[0] + '.out'):
             print("[TS_OPT] TS optimization succeeded.")
             self.update_coords_from_xyz(
-                f"{self.name}_TS_opt.xyz")
+                input_name.split('.')[0] + '.xyz')  # Update coords from output")
             self.name = "ts"
 
             if self.freq_job(driver, slurm_params, ts=True):
@@ -340,6 +344,7 @@ class Molecule:
             else:
                 print(
                     "[TS_OPT] TS has no significant imaginary frequency. Check negative mode of guess.")
+
                 self.update_coords_from_xyz("ts_guess.xyz")
                 self.name = "ts_guess"
 
@@ -350,8 +355,8 @@ class Molecule:
         time.sleep(RETRY_DELAY)
         driver.shell_command(
             "rm -rf *.gbw pmix* *densities*  slurm* *.hess")
-        if os.path.exists(f'{self.name}_TS_opt.xyz'):
-            self.update_coords_from_xyz(f'{self.name}_TS_opt.xyz')
+        if os.path.exists(f"{input_name}.split('.')[0].xyz"):
+            self.update_coords_from_xyz(f'{input_name.split(".")[0]}.xyz')
 
         return self.ts_opt(trial=trial, upper_limit=upper_limit)
 
@@ -379,7 +384,7 @@ class Molecule:
                 if not self.freq_job(driver=driver, slurm_params=slurm_params, ts=True):
                     print("Guess has no significant imaginary frequency. Aborting.")
 
-            self.to_xyz(f"{self.name}_TS_opt.xyz")
+            self.to_xyz(f"{self.name}.xyz")
 
             # Run freq job to ensure negative frequency for TS
             if not self.freq_job(driver=driver, slurm_params=slurm_params, ts=True):
@@ -387,6 +392,7 @@ class Molecule:
                 return False
 
         solvent_formatted = f"CPCM({self.solvent})" if self.solvent else ""
+        input_name = f"{self.name}_IRC.inp"
 
         irc_input = (
             f"!{self.method} IRC tightscf {solvent_formatted}\n"
@@ -397,11 +403,11 @@ class Molecule:
             f"{self.get_xyz_block()}*"
         )
 
-        with open(f"{self.name}_IRC.inp", "w") as f:
+        with open(input_name, "w") as f:
             f.write(irc_input)
 
         job_id = driver.submit_job(
-            f"{self.name}_IRC.inp", f"{self.name}_IRC_slurm.out")
+            input_name, input_name.split('.')[0] + '_slurm.out')
         status = driver.check_job_status(job_id, step="IRC")
 
         if status == 'COMPLETED' and 'HURRAY' in driver.grep_output('HURRAY', f'{self.name}_IRC.out'):
@@ -447,23 +453,24 @@ class Molecule:
             return False
 
         if trial == 1:
-            self.to_xyz(f"{self.name}_sp.xyz")
+            self.to_xyz()
 
         sp_input = (
             f"!{self.method} {solvent_formatted} verytightscf defgrid3 \n"
             f"%pal nprocs {slurm_params['nprocs']} end\n"
             f"%maxcore {slurm_params['maxcore']}\n"
-            f"*xyzfile {self.charge} {self.mult} \n"
+            f"*xyz {self.charge} {self.mult} \n"
             f"{self.get_xyz_block()}*"
         )
-        with open(f"{self.name}_SP.inp", "w") as f:
+        input_name = f"{self.name}_SP.inp"
+        with open(input_name, "w") as f:
             f.write(sp_input)
         job_id = driver.submit_job(
-            f"{self.name}_SP.inp", f"{self.name}_SP_slurm.out")
+            input_name, input_name.split('.')[0] + '_slurm.out')
 
         status = driver.check_job_status(job_id, step="SP")
 
-        if status == 'COMPLETED' and 'FINAL SINGLE POINT ENERGY' in driver.grep_output('FINAL SINGLE POINT ENERGY', f'{self.name}SP.out'):
+        if status == 'COMPLETED' and 'FINAL SINGLE POINT ENERGY' in driver.grep_output('FINAL SINGLE POINT ENERGY', input_name.split('.')[0] + '.out'):
             print("[SP] Single point calculation completed successfully.")
             return True
 
@@ -607,19 +614,20 @@ class Reaction:
             f"%neb\n  Product \"product.xyz\"\n  NImages {self.nimages} \nend\n"
             f"*xyzfile {self.charge} {self.mult} educt.xyz\n"
         )
+        input_name = f"{self.name}_neb-CI.inp"
 
-        with open(f'{self.name}_neb-CI.inp', 'w') as f:
+        with open(input_name, 'w') as f:
             f.write(neb_input)
 
         job_id = driver.submit_job(
-            f"{self.name}_neb-CI.inp", f"{self.name}_neb-ci_slurm.out", walltime="72")
+            input_name, input_name.split('.')[0] + '_slurm.out', walltime="72")
         status = driver.check_job_status(job_id, step="NEB-CI")
 
-        if status == 'COMPLETED' and 'THE NEB OPTIMIZATION HAS CONVERGED' in driver.grep_output('THE NEB OPTIMIZATION HAS CONVERGED', f'{self.name}_neb-CI.out'):
+        if status == 'COMPLETED' and 'THE NEB OPTIMIZATION HAS CONVERGED' in driver.grep_output('THE NEB OPTIMIZATION HAS CONVERGED', input_name.split('.')[0] + '.out'):
             print('[NEB_CI] Completed successfully.')
             time.sleep(20)
             pot_ts = Molecule.from_xyz(
-                f"{self.name}_neb-CI_NEB-CI_converged.xyz", charge=self.charge, mult=self.mult, solvent=self.solvent, method="r2scan-3c", name="ts_guess")
+                input_name.split(".")[0] + "_NEB-CI_converged.xyz", charge=self.charge, mult=self.mult, solvent=self.solvent, method=self.method, name="ts_guess", sp_method=self.sp_method)
 
             slurm_params_freq = slurm_params.copy()
             # a bit conservative maybe double is enough
@@ -698,12 +706,12 @@ class Reaction:
             f"*xyzfile {self.charge} {self.mult} educt.xyz\n"
         )
 
-        neb_input_name = "neb-fast-TS.inp" if self.fast else "neb-TS.inp"
+        neb_input_name = f"{self.name}_neb-fast-TS.inp" if self.fast else f"{self.name}_neb-TS.inp"
         with open(neb_input_name, 'w') as f:
             f.write(neb_input)
 
         job_id = driver.submit_job(
-            neb_input_name, "NEB_TS_slurm.out", walltime="72")
+            neb_input_name, neb_input_name.split(".")[0] + "_slurm.out", walltime="72")
         status = driver.check_job_status(job_id, step="NEB_TS")
 
         out_name = neb_input_name.rsplit(".", 1)[0] + ".out"

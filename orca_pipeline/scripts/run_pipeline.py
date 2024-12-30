@@ -93,7 +93,7 @@ def main() -> None:
     coords = config.get('coords', ["educt.xyz", "product.xyz"])
     solvent = config.get('solvent', None)
     Nimages = config.get('Nimages', 8)
-    fast = config.get('fast', False)
+    fast = config.get('fast', True)
     zoom = config.get('zoom', False)
     sp_method = config.get('sp_method', 'r2scanh def2-qzvpp d4')
     name = config.get('name', None)
