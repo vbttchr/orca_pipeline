@@ -147,6 +147,7 @@ class Molecule:
         """
 
         trial += 1
+
         print(f"[OPT] Trial {trial} for reactant optimisation")
 
         if trial > upper_limit:
@@ -202,6 +203,12 @@ class Molecule:
 
         driver.scancel_job(job_id)
         time.sleep(RETRY_DELAY)
+        if not os.path.exists("Failed_calculations"):
+            os.mkdir("Failed_calculations")
+
+        shutil.move(input_name.split('.')[
+                    0]+'_out', f"Failed_calculations/{input_name.split('.')[0]}_failed_on_trial_{trial}.out")
+
         driver.shell_command(
             "rm -rf *.gbw pmix* *densities*  slurm* ")
         self.update_coords_from_xyz(f"{input_name.split('.')[0]}.xyz")
@@ -268,7 +275,12 @@ class Molecule:
                 return True
 
         print('[FREQ] Job failed or no frequencies found. Retrying...')
+        if not os.path.exists("Failed_calculations"):
+            os.mkdir("Failed_calculations")
+
         driver.scancel_job(job_id_freq)
+        shutil.move(input_name.split('.')[
+                    0] + '_out', f"Failed_calculations/{input_name.split('.')[0]}_failed_on_trial_{trial}.out")
         driver.shell_command(
             "rm -rf *.gbw pmix* *densities*  slurm*")
         return self.freq_job(driver=driver, slurm_params=slurm_params, trial=trial, upper_limit=upper_limit, ts=ts)
@@ -353,6 +365,10 @@ class Molecule:
         print("[TS_OPT] TS optimization failed. Retrying...")
         driver.scancel_job(job_id)
         time.sleep(RETRY_DELAY)
+        if not os.path.exists("Failed_calculations"):
+            os.mkdir("Failed_calculations")
+        shutil.move(input_name.split('.')[0] + '_out',
+                    f"Failed_calculations/{input_name.split('.')[0]}_failed_on_trial_{trial}.out")
         driver.shell_command(
             "rm -rf *.gbw pmix* *densities*  slurm* *.hess")
         if os.path.exists(f"{input_name}.split('.')[0].xyz"):
@@ -426,6 +442,10 @@ class Molecule:
                 return False
 
         time.sleep(RETRY_DELAY)
+        if not os.path.exists("Failed_calculations"):
+            os.mkdir("Failed_calculations")
+        shutil.move(input_name.split('.')[0] + '_out',
+                    f"Failed_calculations/{input_name.split('.')[0]}_failed_on_trial_{trial}.out")
         driver.shell_command(
             "rm -rf *.gbw pmix* *densities*  slurm*")
         return self.irc_job(driver=driver, slurm_params=slurm_params, trial=trial, upper_limit=upper_limit, maxiter=maxiter)
@@ -647,6 +667,11 @@ class Reaction:
                     return False
                 driver.scancel_job(job_id)
                 time.sleep(RETRY_DELAY)
+                if not os.path.exists("Failed_calculations"):
+                    os.mkdir("Failed_calculations")
+                shutil.move(input_name.split('.')[0] + '_out',
+                            f"Failed_calculations/{input_name.split('.')[0]}_failed_on_trial_{trial}.out")
+
                 driver.shell_command(
                     "rm -rf *.gbw pmix* *densities* freq.inp slurm* *neb*.inp")
                 self.nimages += 4
@@ -654,6 +679,11 @@ class Reaction:
         else:
             print('[NEB_CI] Job failed or did not converge. Retrying...')
             driver.scancel_job(job_id)
+            if not os.path.exists("Failed_calculations"):
+                os.mkdir("Failed_calculations")
+            shutil.move(input_name.split('.')[0] + '_out',
+                        f"Failed_calculations/{input_name.split('.')[0]}_failed_on_trial_{trial}.out")
+
             time.sleep(RETRY_DELAY)
             driver.shell_command(
                 "rm -rf *.gbw pmix* *densities* freq.inp slurm* neb*im* *neb*.inp")
@@ -742,6 +772,11 @@ class Reaction:
                     print("TS has no significant imag freq Retry with refined method")
                     driver.scancel_job(job_id)
                     time.sleep(RETRY_DELAY)
+                    if not os.path.exists("Failed_calculations"):
+                        os.mkdir("Failed_calculations")
+                    shutil.move(neb_input_name.split('.')[0] + '_out',
+                                f"Failed_calculations/{neb_input_name.split('.')[0]}_failed_on_trial_{trial}.out")
+
                     driver.shell_command(
                         "rm -rf *.gbw pmix* *densities* freq.inp slurm* *neb*.inp")
 
