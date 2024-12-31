@@ -143,6 +143,7 @@ def main() -> None:
 
     if success:
         print("Pipeline completed successfully.")
+        open('COMPLETED', 'w').close()
     else:
         print("Pipeline failed check logs for more information.")
 
