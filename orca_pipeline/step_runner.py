@@ -280,7 +280,7 @@ class StepRunner:
             self.make_folder("TS")
 
             self.hpc_driver.shell_command(
-                f"cp NEB/{self.target.transition_state.name}_freq.hess TS/guess.hess")
+                f"cp NEB/{self.target.transition_state.name}_freq.hess TS/{self.target.transition_state.name}_guess.hess")
             os.chdir("TS")
 
             return self.target.transition_state.ts_opt(self.hpc_driver, self.slurm_params_high_mem, trial=0, upper_limit=MAX_TRIALS)
