@@ -789,7 +789,7 @@ class Reaction:
 
                     return "failed", False
 
-        elif driver.grep_output('ORCA TERMINATED NORMALLY', f'{neb_input_name.rsplit(".", 1)[0]}.out'):
+        elif driver.grep_output('ORCA TERMINATED NORMALLY', f'{neb_input_name.rsplit(".", 1)[0]}.out') or driver.grep_output("The optimization did not converge", f'{neb_input_name.rsplit(".", 1)[0]}.out'):
             # TODO Maybe do something else than just restart with other settings
             print("ORCA has terminated normally, optimisation did not converge.")
             print("Restart neb with more precise settings, use ")
