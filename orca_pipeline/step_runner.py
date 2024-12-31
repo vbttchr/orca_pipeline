@@ -47,6 +47,7 @@ class StepRunner:
         self.completed_steps = self.state.get("last_completed_step", "")
         if self.completed_steps:
             index = self.steps.index(self.completed_steps)
+
             next_step = self.steps[index+1]
             self.steps = self.steps[self.steps.index(next_step):]
             logging.info(
@@ -322,6 +323,7 @@ class StepRunner:
             return False
 
     def handle_failed_neb(self,  uper_limit):
+
         if "xtb" in self.target.method.lower():
             print("Restating with FAST-NEB r2scan-3c")
             self.target.method = "r2scan-3c"

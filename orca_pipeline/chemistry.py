@@ -12,7 +12,11 @@ from orca_pipeline.constants import MAX_TRIALS, RETRY_DELAY, FREQ_THRESHOLD
 
 from orca_pipeline.hpc_driver import HPCDriver
 
-# TODO put functions from step_runner here. Step Runer is just and orchestrator of the steps.
+# TODO ad gather results function  for SP.
+# TODO add FOD functio
+# TODO add plotting function
+# TODO add functionality for plotting function to several Steps.
+# TODO add censo option to confomers and maybe GOAT.
 
 
 def read_xyz(filepath: str) -> Tuple[List[str], np.ndarray]:
@@ -207,7 +211,7 @@ class Molecule:
             os.mkdir("Failed_calculations")
 
         shutil.move(input_name.split('.')[
-                    0]+'_out', f"Failed_calculations/{input_name.split('.')[0]}_failed_on_trial_{trial}.out")
+                    0]+'.out', f"Failed_calculations/{input_name.split('.')[0]}_failed_on_trial_{trial}.out")
 
         driver.shell_command(
             "rm -rf *.gbw pmix* *densities*  slurm* ")
@@ -280,7 +284,7 @@ class Molecule:
 
         driver.scancel_job(job_id_freq)
         shutil.move(input_name.split('.')[
-                    0] + '_out', f"Failed_calculations/{input_name.split('.')[0]}_failed_on_trial_{trial}.out")
+                    0] + '.out', f"Failed_calculations/{input_name.split('.')[0]}_failed_on_trial_{trial}.out")
         driver.shell_command(
             "rm -rf *.gbw pmix* *densities*  slurm*")
         return self.freq_job(driver=driver, slurm_params=slurm_params, trial=trial, upper_limit=upper_limit, ts=ts)
@@ -367,7 +371,7 @@ class Molecule:
         time.sleep(RETRY_DELAY)
         if not os.path.exists("Failed_calculations"):
             os.mkdir("Failed_calculations")
-        shutil.move(input_name.split('.')[0] + '_out',
+        shutil.move(input_name.split('.')[0] + '.out',
                     f"Failed_calculations/{input_name.split('.')[0]}_failed_on_trial_{trial}.out")
         driver.shell_command(
             "rm -rf *.gbw pmix* *densities*  slurm* *.hess")
@@ -444,7 +448,7 @@ class Molecule:
         time.sleep(RETRY_DELAY)
         if not os.path.exists("Failed_calculations"):
             os.mkdir("Failed_calculations")
-        shutil.move(input_name.split('.')[0] + '_out',
+        shutil.move(input_name.split('.')[0] + '.out',
                     f"Failed_calculations/{input_name.split('.')[0]}_failed_on_trial_{trial}.out")
         driver.shell_command(
             "rm -rf *.gbw pmix* *densities*  slurm*")
@@ -463,6 +467,7 @@ class Molecule:
         Default is r2scanh def2-qzvpp d4.
 
         """
+        # TODO add freq_job add gathering of energies.
 
         solvent_formatted = f"CPCM({self.solvent})" if self.solvent else ""
 
@@ -524,6 +529,8 @@ class Molecule:
         if not os.path.exists("xtbopt.xyz"):
             print("Optimization failed. Aborting.")
             return False
+
+        # TODO change submit_command or ssub scripts to be unified
 
         """
         generates crest ensembel
@@ -681,7 +688,7 @@ class Reaction:
             driver.scancel_job(job_id)
             if not os.path.exists("Failed_calculations"):
                 os.mkdir("Failed_calculations")
-            shutil.move(input_name.split('.')[0] + '_out',
+            shutil.move(input_name.split('.')[0] + '.out',
                         f"Failed_calculations/{input_name.split('.')[0]}_failed_on_trial_{trial}.out")
 
             time.sleep(RETRY_DELAY)
@@ -774,7 +781,7 @@ class Reaction:
                     time.sleep(RETRY_DELAY)
                     if not os.path.exists("Failed_calculations"):
                         os.mkdir("Failed_calculations")
-                    shutil.move(neb_input_name.split('.')[0] + '_out',
+                    shutil.move(neb_input_name.split('.')[0] + '.out',
                                 f"Failed_calculations/{neb_input_name.split('.')[0]}_failed_on_trial_{trial}.out")
 
                     driver.shell_command(
@@ -783,12 +790,14 @@ class Reaction:
                     return "failed", False
 
         elif driver.grep_output('ORCA TERMINATED NORMALLY', f'{neb_input_name.rsplit(".", 1)[0]}.out'):
+            # TODO Maybe do something else than just restart with other settings
             print("ORCA has terminated normally, optimisation did not converge.")
             print("Restart neb with more precise settings, use ")
             driver.scancel_job(job_id)
+
             # If needed, remove partial files or rename them
             driver.shell_command(
-                "rm -rf *.gbw pmix* *densities* freq.inp slurm* *neb*.inp")
+                "rm -rf *.gbw pmix* *densities* *freq.inp slurm* *neb*.inp")
 
             return "failed", False
   # already changed dir

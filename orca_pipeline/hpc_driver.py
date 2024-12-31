@@ -62,6 +62,8 @@ class HPCDriver:
         """
         Submits a job to SLURM using the configured submit command.
         Parses and returns the job ID from stdout.
+
+        TODO: either change ssub scripts to always take same options or make this more flexibel
         """
         command = self.submit_cmd + \
             ["-w", walltime, "-o", output_file, input_file]
