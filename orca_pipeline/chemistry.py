@@ -358,7 +358,7 @@ class Molecule:
         if os.path.exists(f"{input_name}.split('.')[0].xyz"):
             self.update_coords_from_xyz(f'{input_name.split(".")[0]}.xyz')
 
-        return self.ts_opt(trial=trial, upper_limit=upper_limit)
+        return self.ts_opt(driver, slurm_params=slurm_params, trial=trial, upper_limit=upper_limit)
 
     def irc_job(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = 5, maxiter: int = 70) -> bool:
         """
