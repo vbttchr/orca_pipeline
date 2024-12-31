@@ -410,7 +410,7 @@ class Molecule:
             input_name, input_name.split('.')[0] + '_slurm.out')
         status = driver.check_job_status(job_id, step="IRC")
 
-        if status == 'COMPLETED' and 'HURRAY' in driver.grep_output('HURRAY', f'{self.name}_IRC.out'):
+        if status == 'COMPLETED' and ('HURRAY' in driver.grep_output('HURRAY', f'{self.name}_IRC.out') and driver.grep_output('ORCA TERMINATED NORMALLY', f'{self.name}_IRC.out')):
             print("[IRC] IRC completed successfully.")
 
             return True
