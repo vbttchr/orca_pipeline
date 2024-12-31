@@ -334,7 +334,7 @@ class StepRunner:
             if not self.geometry_optimisation():
                 print("Failed to reoptimize reactants.")
                 return False
-            print("Reactants reoptimized. Restarting FAST-NEB-TS with r2scan.")
+            print("Reactants reoptimized. Restarting FAST-NEB-TS with r2scan-3c.")
             os.chdir("..")
 
             return self.neb_ts()
@@ -343,7 +343,13 @@ class StepRunner:
             self.target.nimages = 12
             print("Restarting with NEB-TS r2scan-3c")
             return self.neb_ts()
+        elif ("xtb" not in self.target.method and self.target.fast == False) and self.target.zoom == False:
+            print("Try with zoom-option")
+            self.target.zoom = True
+            self.target.nimages = 12
+            return self.neb_ts()
+
         else:
             print("Trying to get a better initial guess with NEB-CI")
-            self.target.nimages = 16
+            self.target.nimages = 12
             return self.neb_ci()
