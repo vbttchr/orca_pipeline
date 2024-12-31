@@ -351,5 +351,6 @@ class StepRunner:
 
         else:
             print("Trying to get a better initial guess with NEB-CI")
+            self.target.zoom = False
             self.target.nimages = 12
             return self.neb_ci()
