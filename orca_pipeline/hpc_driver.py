@@ -58,15 +58,22 @@ class HPCDriver:
             else:
                 return None
 
-    def submit_job(self, input_file: str, output_file: str, walltime: str = "24") -> str:
+    def submit_job(self, input_file: str, output_file: str, walltime: str = "24", mail: bool = False, job_type: str = "orca", charge: int = 0, mult: int = 0) -> str:
         """
         Submits a job to SLURM using the configured submit command.
         Parses and returns the job ID from stdout.
 
         TODO: either change ssub scripts to always take same options or make this more flexibel
         """
-        command = self.submit_cmd + \
-            ["-w", walltime, "-o", output_file, input_file]
+        command = []
+        match job_type.lower():
+            case "orca":
+                command = ["ssubo", "-w", walltime, "-m",
+                           str(mail), "-o", output_file, input_file]
+            case "crest":
+                command = ["ssubcrest" "-w", walltime, "-m",
+                           str(mail), "-c", charge, "-u", mult-1, "-o",  output_file, input_file]
+
         result = self.run_subprocess(command)
         if not result:
             print(f"Failed to submit job with input '{input_file}'")

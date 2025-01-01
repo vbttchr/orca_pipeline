@@ -17,17 +17,10 @@ current_dir=$(pwd)
 
 echo "$current_dir"
 
-cp /cluster/home/jlandis/orca_pipeline/src/run_pipeline.py "$current_dir"
-cp /cluster/home/jlandis/orca_pipeline/src/hpc_driver.py "$current_dir"
-cp /cluster/home/jlandis/orca_pipeline/src/step_runner.py "$current_dir"
-cp /cluster/home/jlandis/orca_pipeline/src/pipeline_manager.py "$current_dir"
-cp /cluster/home/jlandis/orca_pipeline/src/constants.py "$current_dir" 
-cp /cluster/home/jlandis/orca_pipeline/src/chemistry.py "$current_dir"
 
 # Default values
 job_name="Pipeline"
 output_file="slurm-%j.out"
-file="run_pipeline.py"
 python_output="pipeline_output.log" 
 
 
@@ -38,8 +31,8 @@ sbatch --job-name="$job_name" --output="$output_file" <<EOL
 #SBATCH --output=$output_file
 #SBATCH -n 1
 #SBATCH --mem-per-cpu=1G
-#SBATCH --time=24:00:00
+#SBATCH --time=240:00:00
 
 
-python3 -u $file  $config_file > $python_output 2>&1 
+run_pipeline  $config_file > $python_output 2>&1 
 EOL

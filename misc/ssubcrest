@@ -1,110 +1,112 @@
+#!/bin/bash
+
+# a program to submit crest jobs to Euler slurm
+# @AUTHOR Felix Fleckenstein
+#
+
+readonly ARGS="$@"
+
 function usage () {
-    echo "Usage: $0 -f xyzfile -c charge -u unpaired_electrons [-s potential_solvent] [-t threads]"
-    echo
-    echo "Options:"
-    echo "  -f, --file       Path to the XYZ coordinate file (required)"
-    echo "  -c, --charge     Total charge of the molecule/reaction (required)"
-    echo "  -u, --unpaired   Number of unpaired electrons (required)"
-    echo "  -s, --solvent    Solvent model (e.g., CPCM, ALPB). Optional."
-    echo "  -t, --threads    Number of CPU threads to use (optional, default: 24)"
-    echo "  -h, --help       Display this help message"
+
+    echo "usage"
+    echo "$0 xyzfile charge unpaired_electrons potential_solvent(can be empty) "
+
+}
+
+function get_args () {
+    # Set up default paramters;
+     # scratch space in MB (per Node, not per core as in LSF)
+    walltime=120 # wall time in h
+    output=slurm-%j.out
+    mail=True
+    solv=""
+    charge=0
+    unpaired=0
+    # Parse the arguments
+    local OPTIND OPTARG flag w o m c u
+    while getopts ':w:o:m:c:u' flag; do
+        case $flag in
+            w) walltime=${OPTARG};;
+	        o) output=${OPTARG};;
+	        m) mail=${OPTARG};; 
+            c) charge=${OPTARG};;
+            u) unpaired=${OPTARG};;
+            *)
+              usage
+              exit
+              ;;
+        esac
+    done
+    xyzfile=${*:$OPTIND:1}
+
+    if [ "$mail" == True  ]; then
+	    mail="#SBATCH --mail-type=END,FAIL"
+    else
+	    mail=""
+    fi
+
 }
 
 function main () {
-    # Initialize variables with default values
-    local nproc=1
-    local walltime=120
+
+    # make sure you added
+    # export MODULEPATH=$MODULEPATH:/cluster/project/chenp/share/modules/modulefiles
+    # to your $HOME/.bashrc
+    # otherwise it won't find the modules in our group folder
+
+    
+
+    
+
+    local nproc=24
+    
     local mem=1000
     local scratchspace=10000
+    
 
-    local xyzfile=""
-    local charge=""
-    local unpaired=""
-    local solv=""
-    local threads=24  # Default number of threads
+    
+   
+    
 
-    # Parse flags
-    while [[ "$#" -gt 0 ]]; do
-        case $1 in
-            -f|--file)
-                xyzfile="$2"
-                shift 2
-                ;;
-            -c|--charge)
-                charge="$2"
-                shift 2
-                ;;
-            -u|--unpaired)
-                unpaired="$2"
-                shift 2
-                ;;
-            -s|--solvent)
-                solv="$2"
-                shift 2
-                ;;
-            -t|--threads)
-                threads="$2"
-                # Validate that threads is a positive integer
-                if ! [[ "$threads" =~ ^[1-9][0-9]*$ ]]; then
-                    echo "Error: Threads must be a positive integer."
-                    usage
-                    exit 1
-                fi
-                shift 2
-                ;;
-            -h|--help)
-                usage
-                exit 0
-                ;;
-            *)
-                echo "Unknown parameter passed: $1"
-                usage
-                exit 1
-                ;;
-        esac
-    done
+    local ifpath=$(readlink -f $xyzfile)
+    local ifbase=$(basename $ifpath)
+    local ifdir=$(dirname $ifpath)
+    local ofpath=${ifpath/.xyz/_out.log}
 
-    # Validate required parameters
-    if [[ -z "$xyzfile" || -z "$charge" || -z "$unpaired" ]]; then
-        echo "Error: Missing required parameters."
-        usage
-        exit 1
-    fi
+    sbatch <<---script
+#!/bin/bash
+#
+#SBATCH -J crest_${ifpath}
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=$nproc
+#SBATCH --mem-per-cpu=$mem
+#SBATCH --tmp=$scratchspace
+#SBATCH --output=$output
+#SBATCH --time=$walltime:00:00
+$mail
+module purge
+module load stack/2024-06 xtb openblas crest/3.0.1
+export OMP_NUM_THREAD=24
 
-    # Export OMP_NUM_THREADS
-    export OMP_NUM_THREADS="$threads"
-    echo "Number of CPU threads set to: $OMP_NUM_THREADS"
+sacct -j "\$SLURM_JOB_ID" -B
 
-    # Resolve file paths
-    local ifpath
-    ifpath=$(readlink -f "$xyzfile")
-    local ifbase
-    ifbase=$(basename "$ifpath")
-    local ofpath="${ifpath/.xyz/_out.log}"
+echo "infile: $ifpath"
+if [[ -n "$solv" ]] 
+then 
 
-    echo "Be sure that the geometry is either optimized with DFT or with xTB pre-optimization is disabled"
+	crest $ifpath --gfn2  -chrg $charge -uhf $unpaired -T $nproc --alpb $solv  --scratch \$TMPDIR > $ofpath
+else
+	crest $ifpath --gfn2  -chrg $charge -uhf $unpaired -T $nproc  --scratch \$TMPDIR > $ofpath
+fi
+myjobs -j \$SLURM_JOB_ID
 
-    sbatch <<EOF
-        #!/bin/bash
-        #
-        #SBATCH -J crest_${ifbase}
-        #SBATCH --ntasks=1
-        #SBATCH --cpus-per-task=${threads}
-        #SBATCH --mem-per-cpu=${mem}MB
-        #SBATCH --tmp=${scratchspace}MB
-        #SBATCH --time=${walltime}:00:00
+--script
 
-        sacct -j "\$SLURM_JOB_ID" -B
-
-        echo "infile: $ifpath"
-        if [[ -n "$solv" ]]; then
-            crest "$ifpath" --gfn2 -chrg "$charge" -uhf "$unpaired" -T "$threads" --alpb "$solv" --scratch "\$TMPDIR" > "$ofpath"
-        else
-            crest "$ifpath" --gfn2 -chrg "$charge" -uhf "$unpaired" -T "$threads" --scratch "\$TMPDIR" > "$ofpath"
-        fi
-        myjobs -j "\$SLURM_JOB_ID"
-    EOF
 }
 
-# Execute the main function with all passed arguments
-main "$@"
+if [[ -z $ARGS ]]; then
+    usage
+    exit 1
+else
+    main $ARGS
+fi

@@ -1,4 +1,4 @@
-SSUBO = ["ssubo", "-m", "No"]
+SSUBO = ["ssubo"]
 CHECK_STATES = ['COMPLETED', 'FAILED', 'CANCELLED', 'TIMEOUT']
 DEFAULT_STEPS = ["OPT", "NEB_CI", "TS", "IRC", "SP"]
 

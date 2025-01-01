@@ -140,7 +140,7 @@ class Molecule:
             xyz_block += f"{atom}  {coord[0]:.9f} {coord[1]:.9f} {coord[2]:.9f} \n"
         return xyz_block
 
-    def geometry_opt(self, driver: HPCDriver, slurm_params: dict, trial: int = 1, upper_limit: int = MAX_TRIALS) -> bool:
+    def geometry_opt(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = MAX_TRIALS) -> bool:
         """
         Optimises the geometry of the molecule.
         returns True if the optimisation was successful, False otherwise.
@@ -506,7 +506,7 @@ class Molecule:
             "rm -rf *.gbw pmix* *densities* SP.inp slurm*")
         return self.sp_calc(driver=driver, slurm_params=slurm_params, trial=trial, upper_limit=upper_limit)
 
-    def get_lowest_confomers(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = 5) -> bool:
+    def get_lowest_confomer(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = 5) -> bool:
 
         trial += 1
         print(f"[CREST] Trial {trial} ")
@@ -523,12 +523,32 @@ class Molecule:
         # for now do everything from commnand since orca can have some problems which xtb does not have
         solvent = f"--alpb {self.solvent}" if self.solvent else ""
 
+        # TODO do preopt with cret directly
         driver.shell_command(
-            f"xtb {self.name}_before_crest.xyz --opt --charge {self.charge} --uhf {self.mult -1} {solvent}")
+            f"crest {self.name}_before_crest.xyz --opt vtight --charge {self.charge} --uhf {self.mult -1} {solvent}")
+        # driver.shell_command(
+        #   f"xtb {self.name}_before_crest.xyz --opt --ch  arge {self.charge} --uhf {self.mult -1} {solvent}")
 
-        if not os.path.exists("xtbopt.xyz"):
+        if not os.path.exists("crestopt.xyz"):
             print("Optimization failed. Aborting.")
             return False
+        shutil.move("crestopt.xyz", f"{self.name}_crestopt.xyz")
+        job_id = driver.submit_job(input_file=f"{self.name}_crestopt.xyz", walltime="120",
+                                   output_file=f'{self.name}_slurm.out', charge=self.charge, mult=self.mult-1, job_type="crest")
+
+        status = driver.check_job_status(job_id, step="CREST")
+        if status == 'COMPLETED' and driver.grep_output("CREST terminated normally", f'{self.name}_crestopt.out'):
+            print("[CREST] Conformers generated successfully.")
+            print("OPTIMIZE best confomer")
+
+            self.update_coords_from_xyz(f"crest_best.xyz")
+
+            if self.geometry_opt(driver, slurm_params):
+
+                return True
+            else:
+                print("[CREST] Failed to optimize best conformer.")
+                return False
 
         # TODO change submit_command or ssub scripts to be unified
 
