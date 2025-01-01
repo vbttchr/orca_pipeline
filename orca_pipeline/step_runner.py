@@ -263,7 +263,7 @@ class StepRunner:
             os.chdir("NEB")
 
             message, success = self.target.neb_ts(
-                self.hpc_driver, self.slurm_params_low_mem, trial=0, upper_limit=MAX_TRIALS)
+                self.hpc_driver, self.slurm_params_high_mem, trial=0, upper_limit=MAX_TRIALS)
             if message == "failed":
                 os.chdir("..")
                 return self.handle_failed_neb(MAX_TRIALS)
