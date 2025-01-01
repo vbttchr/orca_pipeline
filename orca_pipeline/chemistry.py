@@ -562,6 +562,8 @@ class Reaction:
     Represents a elementary step in a reaction.
     """
 
+    # TODO function which calculates RMSD between two molecules. To be used to identify which of the endpoints is educt and which is product.
+
     def __init__(self, educt: Molecule, product: Molecule, transition_state: Molecule = None, nimages: int = 16, method: str = "r2scan-3c", sp_method="r2scanh def2-qzvpp d4", solvent="", name="reaction", fast: bool = False, zoom: bool = False) -> None:
         self.educt = educt
         self.product = product
@@ -743,7 +745,7 @@ class Reaction:
             self.educt.to_xyz("educt.xyz")
             self.product.to_xyz("product.xyz")
 
-        geom_block = ""
+        geom_block = f"%geom\n Calc_Hess true\n  end\n"
 
         if "xtb" in self.method.lower():
             self.fast = False
