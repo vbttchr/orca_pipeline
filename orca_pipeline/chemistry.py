@@ -57,6 +57,19 @@ def read_xyz(filepath: str) -> Tuple[List[str], np.ndarray]:
     return atoms, coords
 
 
+def rmsd(path_mol1: str, path_mol2: str) -> float:
+    """
+    Calculates the RMSD between two molecules.
+
+    """
+
+    driver = HPCDriver()
+    result = driver.shell_command(
+        f"crest --rmsd {path_mol1} {path_mol2} | grep 'RMSD' | awk '{{print $NF}}'")
+
+    return float(result)
+
+
 class Molecule:
     """
     Represents a molecule.
@@ -83,7 +96,7 @@ class Molecule:
         if mult < 1:
             raise ValueError("Multiplicity must be at least 1.")
 
-    @classmethod
+    @ classmethod
     def from_xyz(cls, filepath: str, charge: int, mult: int, solvent: str = None, name: str = None, method: str = "r2scan-3c", sp_method="r2scanh def2-qzvpp d4") -> 'Molecule':
         """
         Creates a Molecule instance from an XYZ file.
@@ -523,7 +536,6 @@ class Molecule:
         # for now do everything from commnand since orca can have some problems which xtb does not have
         solvent = f"--alpb {self.solvent}" if self.solvent else ""
 
-        # TODO do preopt with cret directly
         driver.shell_command(
             f"crest {self.name}_before_crest.xyz --opt vtight --charge {self.charge} --uhf {self.mult -1} {solvent}")
         # driver.shell_command(
@@ -547,6 +559,7 @@ class Molecule:
 
                 return True
             else:
+                self.update_coords_from_xyz(f"{self.name}_before_crest.xyz")
                 print("[CREST] Failed to optimize best conformer.")
                 return False
 
@@ -604,7 +617,7 @@ class Reaction:
         product_strs = " + ".join(self.product)
         return f"{reactant_strs} => {product_strs}"
 
-    @classmethod
+    @ classmethod
     def from_xyz(cls, educt_filepath: str, product_filepath: str, transition_state_filepath: str = None, nimages: int = 16, method: str = "r2scan-3c", charge: int = 0, mult: int = 1, solvent: str = None, sp_method: str = "r2scanh def2-qzvpp d4", name: str = "reaction", fast: bool = False, zoom: bool = False) -> 'Reaction':
         """
         Creates an Reaction instance from XYZ files.
@@ -845,4 +858,23 @@ class Reaction:
                 executor.submit(self.transition_state.sp_calc,
                                 driver, slurm_params, trial, upper_limit)
             ]
+        return all([result.result() for result in results])
+
+    def get_lowest_confomers(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = MAX_TRIALS) -> bool:
+        """
+        Generates conformers for the educt and product.
+        """
+        results = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+
+            os.mkdir("educt")
+            os.mkdir("product")
+            os.chdir("educt")
+            results.append(executor.submit(
+                self.educt.get_lowest_confomer, driver, slurm_params, trial, upper_limit))
+            os.chdir("../product")
+            results.append(executor.submit(
+                self.product.get_lowest_confomer, driver, slurm_params, trial, upper_limit))
+            os.chdir("..")
+
         return all([result.result() for result in results])

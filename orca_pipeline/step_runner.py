@@ -7,7 +7,8 @@ import glob
 import sys
 from typing import List, Callable, Dict, Union
 
-from orca_pipeline.chemistry import Reaction, Molecule  # Ensure correct import paths
+# Ensure correct import paths
+from orca_pipeline.chemistry import Reaction, Molecule, rmsd
 from orca_pipeline.hpc_driver import HPCDriver
 from orca_pipeline.constants import MAX_TRIALS, RETRY_DELAY, SLURM_PARAMS_BIG_HIGH_MEM, SLURM_PARAMS_BIG_LOW_MEM, DEFAULT_STEPS
 # Configure logging
@@ -181,6 +182,7 @@ class StepRunner:
             "TS": self.ts_opt,
             "IRC": self.irc_job,
             "SP": self.sp_calc,
+            "CONF": self.conf_calc
         }
 
         step_function: Callable[[], bool] = steps_mapping.get(step.upper())
@@ -204,14 +206,6 @@ class StepRunner:
         """
         Executes the entire pipeline sequence.
         """
-        charge = self.target.charge if isinstance(
-            self.target, Molecule) else self.target.educt.charge
-        mult = self.target.mult if isinstance(
-            self.target, Molecule) else self.target.educt.mult
-        solvent = self.target.solvent if isinstance(
-            self.target, Molecule) else self.target.educt.solvent
-        Nimages = self.target.nimages if isinstance(
-            self.target, Reaction) else 0
 
         for step in self.steps:
 
@@ -321,6 +315,42 @@ class StepRunner:
             logging.error(
                 "Unsupported target type for single point calculation.")
             return False
+
+    def conf_calc(self) -> bool:
+        logging.info("Starting conformer calculation.")
+        if isinstance(self.target, Molecule):
+            self.make_folder("CONF")
+            os.chdir("CONF")
+            return self.target.get_lowest_confomer(self.hpc_driver, self.slurm_params_low_mem)
+        elif isinstance(self.target, Reaction):
+
+            if os.path.exists("IRC"):
+                print("Starting conformer calculation from IRC end points")
+                self.make_folder("CONF")
+                # TODO make it independent from bash
+                self.hpc_driver.shell_command("cp IRC/*_IRC_*.xyz" "CONF/")
+                os.chdir("CONF")
+                self.target.educt.to_xyz("educt.xyz")
+                self.target.product.to_xyz("product.xyz")
+                rmsd_educt_irc_b = rmsd("educt.xyz", "*IRC_B.xyz")
+                rmsd_product_irc_f = rmsd("educt.xyz", "*IRC_F.xyz")
+
+                if rmsd_educt_irc_b < rmsd_product_irc_f:
+                    self.target.educt = Molecule.from_xyz(
+                        f"ts_IRC_IRC_B.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="educt")
+                    self.target.product = Molecule.from_xyz(
+                        "ts_IRC_IRC_IRC_F.xyz", charge=self.target.product.charge, mult=self.target.product.mult, solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product")
+                else:
+                    self.target.educt = Molecule.from_xyz(
+                        "ts_IRC_IRC_F.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="educt")
+                    self.target.product = Molecule.from_xyz("ts_IRC_IRC_B.xyz", charge=self.target.product.charge,
+                                                            mult=self.target.product.mult, solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product")
+                return self.target.get_lowest_confomers(self.hpc_driver, self.slurm_params_low_mem)
+            else:
+                print("Starting conformer calculation form given reactants")
+                return self.target.get_lowest_confomers(self.hpc_driver, self.slurm_params_low_mem)
+        print("Unsupported target type for conformer calculation.")
+        return False
 
     def handle_failed_neb(self,  uper_limit):
 
