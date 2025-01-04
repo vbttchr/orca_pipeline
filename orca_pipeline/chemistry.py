@@ -768,6 +768,9 @@ class Reaction:
         neb_block = "ZOOM-NEB-TS" if self.zoom else neb_block
         nprocs = slurm_params['nprocs'] if 3 * \
             self.nimages < slurm_params['nprocs'] else 3*self.nimages
+        if slurm_params["maxcore"] * nprocs > 450000:
+            nprocs * 2/3
+
         solvent_formatted = ""
         if self.solvent:
             solvent_formatted = f"ALPB({self.solvent})" if "xtb" in self.method.lower(
