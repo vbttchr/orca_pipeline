@@ -758,7 +758,7 @@ class Reaction:
             self.educt.to_xyz("educt.xyz")
             self.product.to_xyz("product.xyz")
 
-        geom_block = f"%geom\n Calc_Hess true\n  end\n"
+        geom_block = ""
 
         if "xtb" in self.method.lower():
             self.fast = False
@@ -766,10 +766,8 @@ class Reaction:
             geom_block = f"%geom\n Calc_Hess true\n Recalc_Hess 1\n MaxIter={maxiter} end\n"
         neb_block = "Fast-NEB-TS" if self.fast else "NEB-TS"
         neb_block = "ZOOM-NEB-TS" if self.zoom else neb_block
-        nprocs = slurm_params['nprocs'] if 3 * \
-            self.nimages < slurm_params['nprocs'] else 3*self.nimages
-        if slurm_params["maxcore"] * nprocs > 450000:
-            nprocs * 2/3
+        nprocs = slurm_params['nprocs'] if 4 * \
+            self.nimages < slurm_params['nprocs'] else 4*self.nimages
 
         solvent_formatted = ""
         if self.solvent:
@@ -805,7 +803,7 @@ class Reaction:
                 potential_ts = Molecule.from_xyz(
                     ts_xyz, charge=self.charge, mult=self.mult, solvent=self.solvent, name="ts_guess", method=self.method, sp_method=self.sp_method)
                 slurm_params_freq = slurm_params
-                slurm_params_freq["maxcore"] = slurm_params_freq["maxcore"]*4
+                slurm_params_freq["maxcore"] = slurm_params_freq["maxcore"]
                 freq_success = potential_ts.freq_job(
                     driver=driver, slurm_params=slurm_params_freq, ts=True)
                 if freq_success:
