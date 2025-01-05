@@ -8,9 +8,11 @@ setup(
     author_email='your.email@example.com',
     packages=find_packages(),
     install_requires=[
-        'numpy',
-        'pandas',
-        # Add other dependencies here
+        'numpy>=1.18.0',
+        'matplotlib>=3.0.0',
+        'seaborn>=0.11.0',
+        'PyYAML>=5.3.1',
+        'pandas>=1.0.0',
     ],
     entry_points={
         'console_scripts': [
@@ -19,7 +21,7 @@ setup(
     },
     classifiers=[
         'Programming Language :: Python :: 3',
-        'Operating System :: OS Independent',
+        'Operating System :: UNIX',
     ],
     python_requires='>=3.7',
 )
