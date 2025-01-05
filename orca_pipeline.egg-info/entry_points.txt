@@ -1,0 +1,2 @@
+[console_scripts]
+run_pipeline = orca_pipeline.scripts.run_pipeline:main
