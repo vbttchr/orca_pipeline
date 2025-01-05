@@ -6,6 +6,7 @@ import time
 import re
 import shutil
 import concurrent.futures
+import pandas as pd
 
 # Own imports
 from orca_pipeline.constants import MAX_TRIALS, RETRY_DELAY, FREQ_THRESHOLD
@@ -57,11 +58,24 @@ def read_xyz(filepath: str) -> Tuple[List[str], np.ndarray]:
     return atoms, coords
 
 
-def rmsd(path_mol1: str, path_mol2: str) -> float:
+def rmsd(mol1, mol2) -> float:
     """
     Calculates the RMSD between two molecules.
 
     """
+    if type(mol1) != type(mol2):
+        raise ValueError("Both arguments must be of the same type.")
+
+    if isinstance(mol1, Molecule):
+
+        path_mol1 = f"{mol1.name}.xyz"
+        mol1.to_xyz(path_mol1)
+
+        path_mol2 = f"{mol2.name}.xyz"
+        mol2.to_xyz(path_mol2)
+    else:
+        path_mol1 = mol1
+        path_mol2 = mol2
 
     driver = HPCDriver()
     result = driver.shell_command(
@@ -579,7 +593,7 @@ class Reaction:
 
     # TODO function which calculates RMSD between two molecules. To be used to identify which of the endpoints is educt and which is product.
 
-    def __init__(self, educt: Molecule, product: Molecule, transition_state: Molecule = None, nimages: int = 16, method: str = "r2scan-3c", sp_method="r2scanh def2-qzvpp d4", solvent="", name="reaction", fast: bool = False, zoom: bool = False) -> None:
+    def __init__(self, educt: Molecule, product: Molecule, transition_state: Molecule = None, nimages: int = 16, method: str = "r2scan-3c", sp_method="r2scanh def2-qzvpp d4", solvent="", name="reaction", fast: bool = False, zoom: bool = False, energies_path: str = None) -> None:
         self.educt = educt
         self.product = product
         self.transition_state = transition_state
@@ -592,6 +606,10 @@ class Reaction:
         self.zoom = zoom
         self.charge = educt.charge
         self.mult = educt.mult
+        self.energies = pd.DataFrame(
+            columns=["step", "single_point_energy", "free_energy_correction" "inner_energy_correction", "entropy", "solvation_correction" "temperature" "method"])
+        if energies_path:
+            self.energies = pd.read_csv(energies_path)
 
         if educt.charge != product.charge:
             raise ValueError("Charge of educt and product must match.")
