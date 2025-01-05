@@ -414,7 +414,9 @@ class Molecule:
 
             if not os.path.exists(f'{self.name}_freq.hess'):
                 print("Hessian file not found. Doing freq job on guess.")
-                if not self.freq_job(driver=driver, slurm_params=slurm_params, ts=True):
+                slurm_params_freq = slurm_params.copy()
+                slurm_params_freq['maxcore'] = slurm_params['maxcore']*4
+                if not self.freq_job(driver=driver, slurm_params=slurm_params_freq, ts=True):
                     print("Guess has no significant imaginary frequency. Aborting.")
 
             self.to_xyz(f"{self.name}.xyz")
