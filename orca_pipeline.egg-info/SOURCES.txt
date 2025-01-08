@@ -11,8 +11,11 @@ orca_pipeline.egg-info/dependency_links.txt
 orca_pipeline.egg-info/entry_points.txt
 orca_pipeline.egg-info/requires.txt
 orca_pipeline.egg-info/top_level.txt
+orca_pipeline/plotting/__init__.py
+orca_pipeline/plotting/neb_trajectory.py
 orca_pipeline/scripts/__init__.py
 orca_pipeline/scripts/get_stuff_from_myjobs.py
+orca_pipeline/scripts/make_plots.py
 orca_pipeline/scripts/run_pipeline.py
 test/__init__.py
 test/test_step_runner.py

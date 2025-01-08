@@ -113,6 +113,6 @@ def plot_optimization(energies, images: int = 12, show: bool = True, save: bool 
 
 
 if __name__ == "__main__":
-    xyz_file = '/home/joel/orca_pipeline/orca_pipeline/plotting/neb-TS_MEP_ALL_trj.xyz'
+    xyz_file = '/home/joel/andreRequests/with_li_clean/other_carbonyl/TS3/constraint_opt/no_li/pipeline/NEB/Reaction_neb-CI_MEP_ALL_trj.xyz'
     energies = parse_xyz_energies(xyz_file)
     plot_optimization(energies, images=16, show=True, save=False)
