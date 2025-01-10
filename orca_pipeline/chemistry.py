@@ -432,13 +432,7 @@ class Molecule:
                 print("Hessian file not found. Doing freq job on guess.")
                 if not self.freq_job(driver=driver, slurm_params=slurm_params_freq, ts=True):
                     print("Guess has no significant imaginary frequency. Aborting.")
-
-            self.to_xyz(f"{self.name}.xyz")
-
-            # Run freq job to ensure negative frequency for TS
-            if not self.freq_job(driver=driver, slurm_params=slurm_params_freq, ts=True):
-                print("[IRC] TS frequency job invalid. Aborting IRC.")
-                return False
+                    return False
 
         solvent_formatted = f"CPCM({self.solvent})" if self.solvent else ""
         input_name = f"{self.name}_IRC.inp"
