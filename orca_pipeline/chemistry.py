@@ -426,8 +426,8 @@ class Molecule:
 
         if trial == 1:
 
-            slurm_params_freq = slurm_params
-            slurm_params_freq['maxcore'] = slurm_params['maxcore']*4
+            slurm_params_freq = slurm_params.copy()
+            slurm_params_freq['maxcore'] = slurm_params_freq['maxcore']*4
             if not os.path.exists(f'{self.name}_freq.hess'):
                 print("Hessian file not found. Doing freq job on guess.")
                 if not self.freq_job(driver=driver, slurm_params=slurm_params_freq, ts=True):
@@ -816,7 +816,7 @@ class Reaction:
             if os.path.exists(ts_xyz):
                 potential_ts = Molecule.from_xyz(
                     ts_xyz, charge=self.charge, mult=self.mult, solvent=self.solvent, name="ts_guess", method=self.method, sp_method=self.sp_method)
-                slurm_params_freq = slurm_params
+                slurm_params_freq = slurm_params.copy()
                 slurm_params_freq["maxcore"] = slurm_params_freq["maxcore"] * 4
                 freq_success = potential_ts.freq_job(
                     driver=driver, slurm_params=slurm_params_freq, ts=True)
