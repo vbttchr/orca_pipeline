@@ -690,7 +690,7 @@ class Reaction:
 
         else:
             # xtb2 is quite fast and can handle a lot of images
-            nprocs = slurm_params['nprocs'] if self.nimages < 64 else 128
+            nprocs = slurm_params['nprocs'] if self.nimages < 64 else 64
             maxcore = 512
 
         neb_input = (
