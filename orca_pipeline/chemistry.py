@@ -682,13 +682,21 @@ class Reaction:
             ) else f"CPCM({self.solvent})"
 
         neb_method = "NEB-CI" if not self.zoom else "ZOOM-NEB-CI"
-        nprocs = slurm_params['nprocs'] if 4 * \
-            self.nimages < slurm_params['nprocs'] else 4*self.nimages
+        nprocs = ""
+        maxcore = slurm_params['maxcore']
+        if not "xtb" in self.method.lower():
+            nprocs = slurm_params['nprocs'] if 4 * \
+                self.nimages < slurm_params['nprocs'] else 4*self.nimages
+
+        else:
+            # xtb2 is quite fast and can handle a lot of images
+            nprocs = slurm_params['nprocs'] if self.image < 64 else 128
+            maxcore = 512
 
         neb_input = (
             f"! {neb_method} {self.method} {solvent_formatted}  \n"
             f"%pal nprocs {nprocs} end\n"
-            f"%maxcore {slurm_params['maxcore']}\n"
+            f"%maxcore {maxcore}\n"
             f"%neb\n  Product \"product.xyz\"\n  NImages {self.nimages} \nend\n"
             f"*xyzfile {self.charge} {self.mult} educt.xyz\n"
         )
