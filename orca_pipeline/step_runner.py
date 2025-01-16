@@ -334,9 +334,9 @@ class StepRunner:
                 self.target.educt.to_xyz("educt.xyz")
                 self.target.product.to_xyz("product.xyz")
                 rmsd_educt_irc_b = rmsd("educt.xyz", "*IRC_B.xyz")
-                rmsd_product_irc_f = rmsd("educt.xyz", "*IRC_F.xyz")
+                rmsd_educt_irc_f = rmsd("educt.xyz", "*IRC_F.xyz")
 
-                if rmsd_educt_irc_b < rmsd_product_irc_f:
+                if rmsd_educt_irc_b < rmsd_educt_irc_f:
                     self.target.educt = Molecule.from_xyz(
                         f"ts_IRC_IRC_B.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="educt")
                     self.target.product = Molecule.from_xyz(
