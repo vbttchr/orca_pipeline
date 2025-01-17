@@ -320,8 +320,8 @@ class StepRunner:
     def conf_calc(self) -> bool:
         logging.info("Starting conformer calculation.")
         if isinstance(self.target, Molecule):
-            self.make_folder("CONF")
-            os.chdir("CONF")
+            self.make_folder("CONFOMERS")
+            os.chdir("CONFOMERS")
             return self.target.get_lowest_confomer(self.hpc_driver, self.slurm_params_low_mem)
         elif isinstance(self.target, Reaction):
 
