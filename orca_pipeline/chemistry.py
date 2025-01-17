@@ -792,7 +792,7 @@ class Reaction:
             maxiter = len(self.educt.atoms) * 4
             geom_block = f"%geom\n Calc_Hess true\n Recalc_Hess 1\n MaxIter={maxiter} end\n"
             nprocs = slurm_params['nprocs'] if self.nimages < slurm_params['nprocs'] else self.nimages
-            maxcore = 1000
+            maxcore = 1500
 
         neb_block = "Fast-NEB-TS" if self.fast else "NEB-TS"
         neb_block = "ZOOM-NEB-TS" if self.zoom else neb_block
