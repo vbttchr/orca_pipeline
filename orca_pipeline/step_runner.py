@@ -325,12 +325,12 @@ class StepRunner:
             return self.target.get_lowest_confomer(self.hpc_driver, self.slurm_params_low_mem)
         elif isinstance(self.target, Reaction):
 
+            self.make_folder("CONF")
+
             if os.path.exists("IRC"):
                 print("Starting conformer calculation from IRC end points")
-                self.make_folder("CONF")
                 # TODO make it independent from bash
                 self.hpc_driver.shell_command("cp IRC/*_IRC_*.xyz" "CONF/")
-                os.chdir("CONF")
                 self.target.educt.to_xyz("educt.xyz")
                 self.target.product.to_xyz("product.xyz")
                 rmsd_educt_irc_b = rmsd("educt.xyz", "*IRC_B.xyz")
@@ -346,10 +346,12 @@ class StepRunner:
                         "ts_IRC_IRC_F.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="educt")
                     self.target.product = Molecule.from_xyz("ts_IRC_IRC_B.xyz", charge=self.target.product.charge,
                                                             mult=self.target.product.mult, solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product")
-                return self.target.get_lowest_confomers(self.hpc_driver, self.slurm_params_low_mem)
-            else:
-                print("Starting conformer calculation form given reactants")
-                return self.target.get_lowest_confomers(self.hpc_driver, self.slurm_params_low_mem)
+
+            print("Starting conformer calculation form given reactants")
+            os.chdir("CONF")
+            self.make_folder("educt")
+            self.make_folder("product")
+            return self.target.get_lowest_confomers(self.hpc_driver, self.slurm_params_low_mem)
         print("Unsupported target type for conformer calculation.")
         return False
 
