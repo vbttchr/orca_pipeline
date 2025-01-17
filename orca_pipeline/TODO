@@ -1,0 +1,9 @@
+ADD pyqrc option
+
+should be executed, if IRC fails for n times
+
+test making confomers and making sp
+
+write plotting part and enegies extraction 
+
+check again if cpcm freq and stuff is okish or if I need to do it via gasphase
