@@ -13,6 +13,7 @@ import argparse
 import os
 from typing import List
 import sys
+import time
 
 from orca_pipeline.hpc_driver import HPCDriver
 from orca_pipeline.step_runner import StepRunner
@@ -138,14 +139,27 @@ def main() -> None:
     step_runner = StepRunner(hpc_driver=hpc_driver,
                              target=target, steps=steps, home_dir=os.getcwd(), slurm_params_low_mem=slurm_params_low_mem, slurm_params_high_mem=slurm_params_high_mem)
     # continue here
-
+    start_time = time.time()
     success = step_runner.run_pipeline()
+    end_time = time.time()
+
+    total_time = end_time - start_time
+
+    days = total_time // (24 * 3600)
+
+    hours = (total_time - days * 24 * 3600) // 3600
+    minutes = (total_time - days * 24 * 3600 - hours * 3600)//60
+    seconds = total_time - days * 24 * 3600 - hours * 3600 - minutes * 60
 
     if success:
         print("Pipeline completed successfully.")
+        print(
+            f"Total time: {days} days, {hours} hours, {minutes} minutes, {seconds} seconds")
         open('COMPLETED', 'w').close()
     else:
         print("Pipeline failed check logs for more information.")
+        print(
+            f"Total time: {days} days, {hours} hours, {minutes} minutes, {seconds} seconds")
 
 
 if __name__ == "__main__":
