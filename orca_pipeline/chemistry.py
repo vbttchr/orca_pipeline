@@ -830,7 +830,8 @@ class Reaction:
                 potential_ts = Molecule.from_xyz(
                     ts_xyz, charge=self.charge, mult=self.mult, solvent=self.solvent, name="ts_guess", method=self.method, sp_method=self.sp_method)
                 slurm_params_freq = slurm_params.copy()
-                slurm_params_freq["maxcore"] = maxcore*4
+                slurm_params_freq["maxcore"] = maxcore if "xtb" in self.method.lower(
+                ) else maxcore*4
                 freq_success = potential_ts.freq_job(
                     driver=driver, slurm_params=slurm_params_freq, ts=True)
                 if freq_success:
