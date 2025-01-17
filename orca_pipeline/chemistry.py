@@ -504,7 +504,7 @@ class Molecule:
             self.to_xyz()
 
         sp_input = (
-            f"!{self.method} {solvent_formatted} verytightscf defgrid3 \n"
+            f"!{self.sp_method} {solvent_formatted} verytightscf defgrid3 \n"
             f"%pal nprocs {slurm_params['nprocs']} end\n"
             f"%maxcore {slurm_params['maxcore']}\n"
             f"*xyz {self.charge} {self.mult} \n"
