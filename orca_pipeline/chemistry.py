@@ -231,7 +231,7 @@ class Molecule:
                 print("[OPT] Optimisation jobs completed.")
 
                 self.update_coords_from_xyz(f"{input_name.split('.')[0]}.xyz")
-                self.name = f'{self.name}_opt'
+                self.name = f'{self.name}'
 
                 # directories are handle by step_runner or custom script.
                 return True

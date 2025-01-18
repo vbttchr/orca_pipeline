@@ -119,16 +119,16 @@ class StepRunner:
                             logging.error(
                                 "Cannot resume SP without TS step.")
                             sys.exit(1)
-                        if os.path.exists("OPT"):
+                        if os.path.exists("OPT") and not os.path.exists("CONF/educt"):
                             self.target.educt = Molecule.from_xyz(filepath="OPT/educt_opt.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult,
-                                                                  solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="educt_opt")
+                                                                  solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="educt")
                             self.target.product = Molecule.from_xyz(filepath="OPT/product_opt.xyz", charge=self.target.product.charge, mult=self.target.product.mult,
-                                                                    solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product_opt")
-                        else:
-                            self.target.educt = Molecule.from_xyz(filepath="NEB/educt.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult,
-                                                                  solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="educt_opt")
-                            self.target.product = Molecule.from_xyz(filepath="NEB/product.xyz", charge=self.target.product.charge, mult=self.target.product.mult,
-                                                                    solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product_opt")
+                                                                    solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product")
+                        elif os.path.exists("CONF/educt") and os.path.exists("CONF/product"):
+                            self.target.educt = Molecule.from_xyz(filepath="CONF/educt/educt_opt.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult,
+                                                                  solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="educt")
+                            self.target.product = Molecule.from_xyz(filepath="CONF/product/product_opt.xyz", charge=self.target.product.charge, mult=self.target.product.mult,
+                                                                    solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product")
                         self.target.transition_state = Molecule.from_xyz(filepath="TS/ts_guess_TS_opt.xyz", charge=self.target.educt.charge,
                                                                          mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="ts")
                 case "CONF":
