@@ -58,17 +58,22 @@ class HPCDriver:
             else:
                 return None
 
-    def submit_job(self, input_file: str, output_file: str, walltime: str = "24", mail: bool = False, job_type: str = "orca", charge: int = 0, mult: int = 0) -> str:
+    def submit_job(self, input_file: str, output_file: str, walltime: str = "24", mail: bool = False, job_type: str = "orca", version: int = 601, charge: int = 0, mult: int = 0) -> str:
         """
         Submits a job to SLURM using the configured submit command.
         Parses and returns the job ID from stdout.
+
+       version = 601
+       only freq can take other version as we currently need it for the qrc option. In the furture, this will either be more flexible or removed. Most recent orca version is preferable 
+
+       charge and mult are only used for crest jobs.
 
         TODO: either change ssub scripts to always take same options or make this more flexibel
         """
         command = []
         match job_type.lower():
             case "orca":
-                command = ["ssubo", "-w", walltime, "-m",
+                command = ["ssubo", "-v", version, "-w", walltime, "-m",
                            str(mail), "-o", output_file, input_file]
             case "crest":
                 command = ["ssubcrest" "-w", walltime, "-m",

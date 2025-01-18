@@ -19,6 +19,8 @@ from orca_pipeline.hpc_driver import HPCDriver
 # TODO add functionality for plotting function to several Steps.
 # TODO add censo option to confomers and maybe GOAT.
 
+### ---UTILS----###
+
 
 def read_xyz(filepath: str) -> Tuple[List[str], np.ndarray]:
     """
@@ -82,6 +84,8 @@ def rmsd(mol1, mol2) -> float:
         f"crest --rmsd {path_mol1} {path_mol2} | grep 'RMSD' | awk '{{print $NF}}'")
 
     return float(result)
+
+### ---MOLECULE----###
 
 
 class Molecule:
@@ -167,6 +171,8 @@ class Molecule:
             xyz_block += f"{atom}  {coord[0]:.9f} {coord[1]:.9f} {coord[2]:.9f} \n"
         return xyz_block
 
+    ### ---OPT----###
+
     def geometry_opt(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = MAX_TRIALS) -> bool:
         """
         Optimises the geometry of the molecule.
@@ -245,7 +251,9 @@ class Molecule:
         self.update_coords_from_xyz(f"{input_name.split('.')[0]}.xyz")
         return self.geometry_opt(driver=driver, slurm_params=slurm_params, trial=trial, upper_limit=upper_limit)
 
-    def freq_job(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = MAX_TRIALS, ts: bool = False) -> bool:
+    ### ---FREQ----###
+
+    def freq_job(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = MAX_TRIALS, ts: bool = False, version: int = 601) -> bool:
         """
         Runs a frequency calculation with the given method with tightscf.
         If ts=True, check for imaginary freq below FREQ_THRESHOLD.
@@ -279,7 +287,7 @@ class Molecule:
             f.write(freq_input)
 
         job_id_freq = driver.submit_job(
-            input_name, input_name.split('.')[0] + '_slurm.out')
+            input_name, input_name.split('.')[0] + '_slurm.out', version=version)
         status_freq = driver.check_job_status(
             job_id_freq, step='Freq')
 
@@ -315,6 +323,8 @@ class Molecule:
         driver.shell_command(
             "rm -rf *.gbw pmix* *densities*  slurm*")
         return self.freq_job(driver=driver, slurm_params=slurm_params, trial=trial, upper_limit=upper_limit, ts=ts)
+
+    ### ---TS-OPT----###
 
     def ts_opt(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = MAX_TRIALS) -> bool:
         """
@@ -407,11 +417,95 @@ class Molecule:
 
         return self.ts_opt(driver, slurm_params=slurm_params, trial=trial, upper_limit=upper_limit)
 
+    ### ---QRC---###
+
+    def qrc_job(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = 5, ) -> bool:
+
+        print(f"[QRC] Trial {trial}")
+        print("The module uses pyQRC to make the displacement checkout there git (https://github.com/patonlab/pyQRC) for correct citation and usage.")
+
+        if "xtb" in self.method.lower():
+            print(
+                "QRC calculation will not be conducted with semiemporical methods. Switching to r2scan-3c.")
+            self.method = "r2scan-3c"
+
+        print(
+            "QRC does currently not suport ORCA 6.0.1. Need to do the freq job with ORCA 5.0.4")
+
+        trial += 1
+
+        if trial > upper_limit:
+            print("[QRC] Too many trials, aborting.")
+            return False
+
+        if trial == 1:
+            slurm_params_freq = slurm_params.copy()
+            slurm_params_freq['maxcore'] = slurm_params_freq['maxcore']*4
+            print("Doing freq job on guess.")
+            print("Deleting old hess and gbw files")
+            driver.shell_command("rm -rf *.gbw *.hess")
+            if not self.freq_job(driver=driver, slurm_params=slurm_params_freq, ts=True, version=504):
+                print("Guess has no significant imaginary frequency. Aborting.")
+                return False
+            # input is bassically the same as example 2 from the pyQRC git
+        driver.shell_command(
+            f"python -m pyqrc --nproc {slurm_params['nprocs']} --mem {slurm_params['maxcore']} --amp 0.3 --name QRC_Forward --route '{self.method}' {self.name}_freq.out ")
+        driver.shell_command(
+            f"python -m pyqrc --nproc {slurm_params['nprocs']} --mem {slurm_params['maxcore']} --amp -0.3 --name QRC_Backwards --route '{self.method}' {self.name}_freq.out ")
+
+        input_name_front = f"{self.name}_QRC_Forward.inp"
+        input_name_back = f"{self.name}_QRC_Backwards.inp"
+
+        job_id_front = driver.submit_job(
+            input_name_front, input_name_front.split('.')[0] + '_slurm.out')
+        job_id_back = driver.submit_job(
+            input_name_back, input_name_back.split('.')[0] + '_slurm.out')
+
+        statuses = []
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future_front = executor.submit(
+                driver.check_job_status, job_id_front, step="QRC_FRONT")
+            future_back = executor.submit(
+                driver.check_job_status, job_id_back, step="QRC_BACK")
+
+            statuses.append(future_front.result())
+            statuses.append(future_back.result())
+
+        if all(status == 'COMPLETED' for status in statuses and all('HURRAY' in driver.grep_output('HURRAY', f'{self.name}_QRC_Forward.out') and 'HURRAY' in driver.grep_output('HURRAY', f'{self.name}_QRC_Backwards.out'))):
+            print("[QRC] QRC calculations completed successfully.")
+            return True
+
+        print("[QRC] QRC calculations failed. Retrying...")
+
+        if all("ORCA TERMINATED NORMALLY" in driver.grep_output('ORCA TERMINATED NORMALLY', f'{self.name}_QRC_Forward.out') and "ORCA TERMINATED NORMALLY" in driver.grep_output('ORCA TERMINATED NORMALLY', f'{self.name}_QRC_Backwards.out')):
+            print("ORCA terminated normally.")
+            print("Issue during Optimisation check input and output files.")
+            return False
+        print("ORCA did not terminate normally. Retrying.")
+        driver.scancel_job(job_id_front)
+        driver.scancel_job(job_id_back)
+        if not os.path.exists("Failed_calculations"):
+            os.mkdir("Failed_calculations")
+        shutil.move(input_name_front.split('.')[0] + '.out',
+                    f"Failed_calculations/{input_name_front.split('.')[0]}_failed_on_trial_{trial}.out")
+
+        shutil.move(input_name_back.split('.')[0] + '.out',
+                    f"Failed_calculations/{input_name_back.split('.')[0]}_failed_on_trial_{trial}.out")
+
+        time.sleep(RETRY_DELAY)
+        driver.shell_command(
+            "rm -rf *.gbw pmix* *densities*  slurm*")
+        return self.qrc_job(driver=driver, slurm_params=slurm_params, trial=trial, upper_limit=upper_limit)
+
+    ### ---IRC----###
+
     def irc_job(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = 5, maxiter: int = 70) -> bool:
         """
         Runs an Intrinsic Reaction Coordinate (IRC) calculation from an optimized TS.
         Checks for 'HURRAY' in 'IRC.out'. Retries with more steps if needed.
         """
+
+        # TODO add after n trials thqat it switches to pyqrc. We need to recaluclate the hess with orca 5.04 also wee need to cahnge the method to opt after that orca 6 should be fine  This can be changed whencclib 2 is released
 
         if "xtb" in self.method.lower():
             print(
@@ -419,6 +513,9 @@ class Molecule:
 
             self.method = "r2scan-3c"
         trial += 1
+        if trial > upper_limit/2:
+            print("[IRC] seems to have an issue try with qrc. QRC has 3 trials")
+            return self.qrc_job(driver=driver, slurm_params=slurm_params, trial=0, upper_limit=3)
         print(f"[IRC] Trial {trial} with maxiter={maxiter}")
         if trial > upper_limit:
             print("[IRC] Too many trials, aborting.")
@@ -889,9 +986,12 @@ class Reaction:
             ]
         return all([result.result() for result in results])
 
+    @DeprecationWarning
     def get_lowest_confomers(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = MAX_TRIALS) -> bool:
         """
         Generates conformers for the educt and product.
+
+        DOES NOT WORK YET
         """
         results = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
