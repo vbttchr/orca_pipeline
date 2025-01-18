@@ -83,7 +83,7 @@ def rmsd(mol1, mol2) -> float:
     result = driver.shell_command(
         f"crest --rmsd {path_mol1} {path_mol2} | grep 'RMSD' | awk '{{print $NF}}'")
 
-    return float(result)
+    return float(result.stdout.strip())
 
 ### ---MOLECULE----###
 
