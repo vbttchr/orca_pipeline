@@ -449,9 +449,9 @@ class Molecule:
                 return False
             # input is bassically the same as example 2 from the pyQRC git
         driver.shell_command(
-            f"python -m pyqrc --nproc {slurm_params['nprocs']} --mem {slurm_params['maxcore']} --amp 0.3 --name QRC_Forward --route '{self.method}' {self.name}_freq.out ")
+            f"python -m pyqrc --nproc {slurm_params['nprocs']} --mem {slurm_params['maxcore']} --amp 0.3 --name QRC_Forward --route '{self.method} opt' {self.name}_freq.out ")
         driver.shell_command(
-            f"python -m pyqrc --nproc {slurm_params['nprocs']} --mem {slurm_params['maxcore']} --amp -0.3 --name QRC_Backwards --route '{self.method}' {self.name}_freq.out ")
+            f"python -m pyqrc --nproc {slurm_params['nprocs']} --mem {slurm_params['maxcore']} --amp -0.3 --name QRC_Backwards --route '{self.method} opt' {self.name}_freq.out ")
 
         input_name_front = f"{self.name}_QRC_Forward.inp"
         input_name_back = f"{self.name}_QRC_Backwards.inp"
