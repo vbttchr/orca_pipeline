@@ -2,10 +2,10 @@ from setuptools import setup, find_packages
 
 setup(
     name='orca_pipeline',
-    version='0.1.0',
-    description='A pipeline for NEB optimization using ORCA.',
-    author='Your Name',
-    author_email='your.email@example.com',
+    version='0.1.3',
+    description='An orchestrater for ORCA pipelines.',
+    author='Joel',
+    author_email='joel@eloh.ch',
     packages=find_packages(),
     install_requires=[
         'numpy>=1.18.0',
@@ -13,6 +13,7 @@ setup(
         'seaborn>=0.11.0',
         'PyYAML>=5.3.1',
         'pandas>=1.0.0',
+        'pyQRC @ git+https://github.com/patonlab/pyQRC.git@master#egg=pyQRC',
     ],
     entry_points={
         'console_scripts': [
