@@ -507,6 +507,10 @@ class Molecule:
 
         # TODO add after n trials thqat it switches to pyqrc. We need to recaluclate the hess with orca 5.04 also wee need to cahnge the method to opt after that orca 6 should be fine  This can be changed whencclib 2 is released
 
+        print("FOr testing directly call qrc_job")
+        if trial == 0:
+            return self.qrc_job(driver=driver, slurm_params=slurm_params, trial=0, upper_limit=3)
+
         if "xtb" in self.method.lower():
             print(
                 "IRC calculation will not be conducted with semiemporical methods. Switching to r2scan-3c. If TS was optimised with other method indicate in the input.")
