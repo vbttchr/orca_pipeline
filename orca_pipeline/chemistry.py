@@ -439,6 +439,9 @@ class Molecule:
             return False
 
         if trial == 1:
+            with open("QRC", "w") as f:
+                f.write("")
+
             slurm_params_freq = slurm_params.copy()
             slurm_params_freq['maxcore'] = slurm_params_freq['maxcore']*4
             print("Doing freq job on guess.")
@@ -523,7 +526,7 @@ class Molecule:
         trial += 1
         if trial > upper_limit/2:
             print("[IRC] seems to have an issue try with qrc. QRC has 3 trials")
-            return self.qrc_job(driver=driver, slurm_params=slurm_params, trial=0, upper_limit=3)
+            return self.qrc_job(driver=driver, slurm_params=slurm_params, trial=trial-1, upper_limit=upper_limit/2)
         print(f"[IRC] Trial {trial} with maxiter={maxiter}")
         if trial > upper_limit:
             print("[IRC] Too many trials, aborting.")
@@ -634,14 +637,15 @@ class Molecule:
             "rm -rf *.gbw pmix* *densities* SP.inp slurm*")
         return self.sp_calc(driver=driver, slurm_params=slurm_params, trial=trial, upper_limit=upper_limit)
 
-    def get_lowest_confomer(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = 5) -> bool:
+    def get_lowest_confomer(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = 5, cwd=None) -> bool:
 
         trial += 1
         print(f"[CREST] Trial {trial} ")
         if trial > upper_limit:
             print("[CREST] Too many trials, aborting.")
             return False
-
+        if not cwd:
+            cwd = os.getcwd()
         print(f"[CREST] Generating conformers for {self.name}")
 
         print("CREST needs xtb2 optimized structures.")
@@ -649,19 +653,16 @@ class Molecule:
         self.to_xyz(f"{self.name}_before_crest.xyz")
 
         # for now do everything from commnand since orca can have some problems which xtb does not have
-        solvent = f"--alpb {self.solvent}" if self.solvent else ""
 
         driver.shell_command(
-            f"crest {self.name}_before_crest.xyz --opt vtight --charge {self.charge} --uhf {self.mult -1} {solvent}")
-        # driver.shell_command(
-        #   f"xtb {self.name}_before_crest.xyz --opt --ch  arge {self.charge} --uhf {self.mult -1} {solvent}")
+            f"crest {self.name}_before_crest.xyz --opt vtight --charge {self.charge} --uhf {self.mult -1} --alpb {self.solvent}")
 
         if not os.path.exists("crestopt.xyz"):
             print("Optimization failed. Aborting.")
             return False
         shutil.move("crestopt.xyz", f"{self.name}_crestopt.xyz")
         job_id = driver.submit_job(input_file=f"{self.name}_crestopt.xyz", walltime="120",
-                                   output_file=f'{self.name}_slurm.out', charge=self.charge, mult=self.mult-1, job_type="crest")
+                                   output_file=f'{self.name}_slurm.out', charge=self.charge, mult=self.mult-1, solvent=self.solvent, job_type="crest", cwd=cwd)  # Grimme programs dont want mult rather number of unpaired electrons
 
         status = driver.check_job_status(job_id, step="CREST")
         if status == 'COMPLETED' and driver.grep_output("CREST terminated normally", f'{self.name}_crestopt.out'):
@@ -677,12 +678,6 @@ class Molecule:
                 self.update_coords_from_xyz(f"{self.name}_before_crest.xyz")
                 print("[CREST] Failed to optimize best conformer.")
                 return False
-
-        # TODO change submit_command or ssub scripts to be unified
-
-        """
-        generates crest ensembel
-        """
 
 
 class Reaction:
@@ -994,24 +989,18 @@ class Reaction:
             ]
         return all([result.result() for result in results])
 
-    @ DeprecationWarning
     def get_lowest_confomers(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = MAX_TRIALS) -> bool:
         """
         Generates conformers for the educt and product.
-
-        DOES NOT WORK YET
+        Function expects that there are educt and product directories in the current working directory.
         """
         results = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
 
-            os.mkdir("educt")
-            os.mkdir("product")
-            os.chdir("educt")
             results.append(executor.submit(
-                self.educt.get_lowest_confomer, driver, slurm_params, trial, upper_limit))
-            os.chdir("../product")
+                self.educt.get_lowest_confomer, driver, slurm_params, trial, upper_limit, cwd="educt"))
+
             results.append(executor.submit(
-                self.product.get_lowest_confomer, driver, slurm_params, trial, upper_limit))
-            os.chdir("..")
+                self.product.get_lowest_confomer, driver, slurm_params, trial, upper_limit, cwd="product"))
 
         return all([result.result() for result in results])

@@ -9,6 +9,7 @@ submitting jobs, checking job status, cancelling jobs, etc.
 import sys
 import subprocess
 import time
+import os
 from typing import List, Optional
 from orca_pipeline.constants import SSUBO, CHECK_STATES
 
@@ -33,11 +34,15 @@ class HPCDriver:
                        capture_output: bool = True,
                        check: bool = True,
                        exit_on_error: bool = True,
-                       timeout: int = 60) -> Optional[subprocess.CompletedProcess]:
+                       timeout: int = 60,
+                       cwd=None) -> Optional[subprocess.CompletedProcess]:
         """
         Wrapper for running a subprocess command.
         Returns CompletedProcess or None if it fails silently (exit_on_error=False).
         """
+        if not cwd:
+            cwd = os.getcwd()
+
         try:
             result = subprocess.run(
                 command,
@@ -45,7 +50,8 @@ class HPCDriver:
                 capture_output=capture_output,
                 text=True,
                 check=check,
-                timeout=timeout
+                timeout=timeout,
+                cwd=cwd
             )
             return result
         except subprocess.TimeoutExpired:
@@ -58,7 +64,7 @@ class HPCDriver:
             else:
                 return None
 
-    def submit_job(self, input_file: str, output_file: str, walltime: str = "24", mail: bool = False, job_type: str = "orca", version: int = 601, charge: int = 0, mult: int = 0) -> str:
+    def submit_job(self, input_file: str, output_file: str, walltime: str = "24", mail: bool = False, job_type: str = "orca", version: int = 601, charge: int = 0, mult: int = 0, solvent: str = "", cwd=None) -> str:
         """
         Submits a job to SLURM using the configured submit command.
         Parses and returns the job ID from stdout.
@@ -70,6 +76,9 @@ class HPCDriver:
 
         TODO: either change ssub scripts to always take same options or make this more flexibel
         """
+
+        if not cwd:
+            cwd = os.getcwd()
         command = []
         match job_type.lower():
             case "orca":
@@ -77,9 +86,9 @@ class HPCDriver:
                            str(mail), "-o", output_file, input_file]
             case "crest":
                 command = ["ssubcrest" "-w", walltime, "-m",
-                           str(mail), "-c", str(charge), "-uhf", str(mult-1), "-o",  output_file, input_file]
+                           str(mail), "-c", str(charge), "-u", str(mult-1), "-s", str(solvent), "-o",  output_file, input_file]
 
-        result = self.run_subprocess(command)
+        result = self.run_subprocess(command, cwd=cwd)
         if not result:
             print(f"Failed to submit job with input '{input_file}'")
             sys.exit(1)
@@ -134,11 +143,11 @@ class HPCDriver:
         """
         self.run_subprocess(['scancel', job_id], exit_on_error=False)
 
-    def shell_command(self, command: str) -> Optional[subprocess.CompletedProcess]:
+    def shell_command(self, command: str.cwd = None) -> Optional[subprocess.CompletedProcess]:
         """
         Wrapper to run an arbitrary shell command for convenience (e.g., grep, cp, rm).
         """
-        return self.run_subprocess(command, shell=True, check=False, exit_on_error=False)
+        return self.run_subprocess(command, shell=True, check=False, exit_on_error=False, cwd=cwd)
 
     def grep_output(self, pattern: str, file_path: str) -> str:
         """

@@ -131,6 +131,17 @@ class StepRunner:
                                                                     solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product_opt")
                         self.target.transition_state = Molecule.from_xyz(filepath="TS/ts_guess_TS_opt.xyz", charge=self.target.educt.charge,
                                                                          mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="ts")
+                case "CONF":
+                    if isinstance(self.target, Reaction):
+                        if os.path.exists("TS"):
+                            self.target.transition_state(Molecule.from_xyz(filepath="TS/ts_guess_TS_opt.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult,
+                                                         solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="ts"))
+                        if os.path.exists("OPT"):
+                            self.target.educt = Molecule.from_xyz(filepath="OPT/educt_opt.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult,
+                                                                  solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="educt_opt")
+                            self.target.product = Molecule.from_xyz(filepath="OPT/product_opt.xyz", charge=self.target.product.charge, mult=self.target.product.mult,
+                                                                    solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product_opt")
+                        # no need to check if IRC is present, since confomere function does this
 
     def make_folder(self, dir_name: str) -> None:
         """
@@ -320,36 +331,49 @@ class StepRunner:
     def conf_calc(self) -> bool:
         logging.info("Starting conformer calculation.")
         if isinstance(self.target, Molecule):
-            self.make_folder("CONFOMERS")
-            os.chdir("CONFOMERS")
+            self.make_folder("CONF")
+            os.chdir("CONF")
             return self.target.get_lowest_confomer(self.hpc_driver, self.slurm_params_low_mem)
         elif isinstance(self.target, Reaction):
-
+            self.make_folder("CONF")
             if os.path.exists("IRC"):
-                print("Starting conformer calculation from IRC end points")
-                self.make_folder("CONF")
-                # TODO make it independent from bash
-                self.hpc_driver.shell_command("cp IRC/*_IRC_*.xyz" "CONF/")
+                print("Starting conformer calculation from IRC or QRC end points")
+
+                if os.path.exists("IRC/QRC"):
+                    self.hpc_driver.shell_command(
+                        "cp IRC/*_QRC_Backwards.xyz" "CONF/back.xyz")
+                    self.hpc_driver.shell_command(
+                        "cp IRC/*_QRC_Forwards.xyz" "CONF/front.xyz")
+                else:
+
+                    self.hpc_driver.shell_command(
+                        "cp IRC/*_IRC_B.xyz" "CONF/back.xyz")
+                    self.hpc_driver.shell_command(
+                        "cp IRC/*_IRC_F.xyz" "CONF/front.xyz")
+                print("Checking which IRC endpoint is closer to educt")
                 os.chdir("CONF")
                 self.target.educt.to_xyz("educt.xyz")
-                self.target.product.to_xyz("product.xyz")
-                rmsd_educt_irc_b = rmsd("educt.xyz", "*IRC_B.xyz")
-                rmsd_product_irc_f = rmsd("educt.xyz", "*IRC_F.xyz")
-
-                if rmsd_educt_irc_b < rmsd_product_irc_f:
+                # self.target.product.to_xyz("product.xyz")
+                rmsd_educt_irc_b = rmsd("educt.xyz", "back.xyz")
+                rmsd_educt_irc_f = rmsd("educt.xyz", "front.xyz")
+                if rmsd_educt_irc_b < rmsd_educt_irc_f:
                     self.target.educt = Molecule.from_xyz(
-                        f"ts_IRC_IRC_B.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="educt")
+                        f"back.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="educt")
                     self.target.product = Molecule.from_xyz(
-                        "ts_IRC_IRC_IRC_F.xyz", charge=self.target.product.charge, mult=self.target.product.mult, solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product")
+                        "front.xyz", charge=self.target.product.charge, mult=self.target.product.mult, solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product")
                 else:
                     self.target.educt = Molecule.from_xyz(
-                        "ts_IRC_IRC_F.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="educt")
-                    self.target.product = Molecule.from_xyz("ts_IRC_IRC_B.xyz", charge=self.target.product.charge,
+                        "front.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="educt")
+                    self.target.product = Molecule.from_xyz("back.xyz", charge=self.target.product.charge,
                                                             mult=self.target.product.mult, solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product")
-                return self.target.get_lowest_confomers(self.hpc_driver, self.slurm_params_low_mem)
             else:
+
                 print("Starting conformer calculation form given reactants")
-                return self.target.get_lowest_confomers(self.hpc_driver, self.slurm_params_low_mem)
+                os.chdir("CONF")
+
+            self.make_folder("educt")
+            self.make_folder("product")
+            return self.target.get_lowest_confomers(self.hpc_driver, self.slurm_params_low_mem)
         print("Unsupported target type for conformer calculation.")
         return False
 
