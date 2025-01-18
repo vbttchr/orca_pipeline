@@ -154,12 +154,12 @@ def main() -> None:
     if success:
         print("Pipeline completed successfully.")
         print(
-            f"Total time: {days} days, {hours} hours, {minutes} minutes, {seconds} seconds")
+            f"Total time: {days} days, {hours} hours, {minutes} minutes, {seconds:.0f} seconds")
         open('COMPLETED', 'w').close()
     else:
         print("Pipeline failed check logs for more information.")
         print(
-            f"Total time: {days} days, {hours} hours, {minutes} minutes, {seconds} seconds")
+            f"Total time: {days} days, {hours} hours, {minutes} minutes, {seconds:.0f} seconds")
 
 
 if __name__ == "__main__":
