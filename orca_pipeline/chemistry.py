@@ -481,7 +481,7 @@ class Molecule:
 
         print("[QRC] QRC calculations failed. Retrying...")
 
-        if all("ORCA TERMINATED NORMALLY" in driver.grep_output('ORCA TERMINATED NORMALLY', f'{self.name}_QRC_Forward.out') and "ORCA TERMINATED NORMALLY" in driver.grep_output('ORCA TERMINATED NORMALLY', f'{self.name}_QRC_Backwards.out')):
+        if "ORCA TERMINATED NORMALLY" in driver.grep_output('ORCA TERMINATED NORMALLY', input_name_front.split('.')[0] + '.out') and "ORCA TERMINATED NORMALLY" in driver.grep_output('ORCA TERMINATED NORMALLY', input_name_back.split('.')[0] + '.out'):
             print("ORCA terminated normally.")
             print("Issue during Optimisation check input and output files.")
             return False
