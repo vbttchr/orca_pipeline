@@ -472,7 +472,10 @@ class Molecule:
             statuses.append(future_front.result())
             statuses.append(future_back.result())
 
-        if all(status == 'COMPLETED' for status in statuses and all('HURRAY' in driver.grep_output('HURRAY', f'{self.name}_QRC_Forward.out') and 'HURRAY' in driver.grep_output('HURRAY', f'{self.name}_QRC_Backwards.out'))):
+        if (
+                all(status == 'COMPLETED' for status in statuses) and
+            'HURRAY' in driver.grep_output('HURRAY', input_name_front.split('.')[0] + '.out') and
+                'HURRAY' in driver.grep_output('HURRAY', input_name_back.split('.')[0] + '.out')):
             print("[QRC] QRC calculations completed successfully.")
             return True
 
@@ -991,7 +994,7 @@ class Reaction:
             ]
         return all([result.result() for result in results])
 
-    @DeprecationWarning
+    @ DeprecationWarning
     def get_lowest_confomers(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = MAX_TRIALS) -> bool:
         """
         Generates conformers for the educt and product.
