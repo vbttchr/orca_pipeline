@@ -453,8 +453,9 @@ class Molecule:
         driver.shell_command(
             f"python -m pyqrc --nproc {slurm_params['nprocs']} --mem {slurm_params['maxcore']} --amp -0.3 --name QRC_Backwards --route '{self.method} opt' {self.name}_freq.out ")
 
-        input_name_front = f"{self.name}_QRC_Forward.inp"
-        input_name_back = f"{self.name}_QRC_Backwards.inp"
+        input_name_front = f"{self.name}_freq_QRC_Forward.inp"
+        # pyqrc takes basename of input file and appends what is passed in the --name flag
+        input_name_back = f"{self.name}_freq_QRC_Backwards.inp"
 
         job_id_front = driver.submit_job(
             input_name_front, input_name_front.split('.')[0] + '_slurm.out')
