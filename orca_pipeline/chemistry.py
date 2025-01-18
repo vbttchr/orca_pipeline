@@ -665,11 +665,14 @@ class Molecule:
                                    output_file=f'{self.name}_slurm.out', charge=self.charge, mult=self.mult-1, solvent=self.solvent, job_type="crest", cwd=cwd)  # Grimme programs dont want mult rather number of unpaired electrons
 
         status = driver.check_job_status(job_id, step="CREST")
-        if status == 'COMPLETED' and driver.grep_output("CREST terminated normally", f'{self.name}_crestopt.out'):
+        if status == 'COMPLETED' and driver.grep_output("CREST terminated normally", f'{self.name}_crestopt.log'):
             print("[CREST] Conformers generated successfully.")
             print("OPTIMIZE best confomer")
 
             self.update_coords_from_xyz(f"crest_best.xyz")
+
+            if "xtb" in self.method.lower():
+                self.method = "r2scan-3c"
 
             if self.geometry_opt(driver, slurm_params):
 

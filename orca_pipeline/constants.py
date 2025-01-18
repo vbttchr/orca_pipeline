@@ -13,7 +13,7 @@ HIGH_MEM_THRESHOLD = 100
 
 SLURM_PARAMS_BIG_HIGH_MEM = {
     'nprocs': 24,
-    'maxcore': 9000
+    'maxcore': 10000
 }
 
 SLURM_PARAMS_BIG_LOW_MEM = {
@@ -41,7 +41,7 @@ SLURM_PARAMS_XTB = {
 
 LOW_MEM_ELEMENTS = {
     "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne",
-    "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca", }
+    "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca"}
 
 HARTREE_TO_KCAL_MOL = 627.509
 kb = 1.380648 * 10**-23  # J/K

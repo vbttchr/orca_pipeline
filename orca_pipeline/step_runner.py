@@ -10,7 +10,7 @@ from typing import List, Callable, Dict, Union
 # Ensure correct import paths
 from orca_pipeline.chemistry import Reaction, Molecule, rmsd
 from orca_pipeline.hpc_driver import HPCDriver
-from orca_pipeline.constants import MAX_TRIALS, RETRY_DELAY, SLURM_PARAMS_BIG_HIGH_MEM, SLURM_PARAMS_BIG_LOW_MEM, DEFAULT_STEPS
+from orca_pipeline.constants import MAX_TRIALS, RETRY_DELAY, SLURM_PARAMS_BIG_HIGH_MEM, SLURM_PARAMS_BIG_LOW_MEM, SLURM_PARAMS_SMALL_HIGH_MEM, SLURM_PARAMS_SMALL_LOW_MEM, DEFAULT_STEPS, LOW_MEM_ELEMENTS
 # Configure logging
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -284,9 +284,32 @@ class StepRunner:
         logging.info("Starting TS optimization.")
         if isinstance(self.target, Reaction):
             self.make_folder("TS")
+            if not "xtb" in self.target.educt.method.lower():
+                self.hpc_driver.shell_command(
+                    f"cp NEB/{self.target.transition_state.name}_freq.hess TS/{self.target.transition_state.name}_guess.hess")
+            else:
+                print(
+                    "If xtb was chosen as method r2scan-3c is used for all subsequent steps starting from TS-optimization")
+                self.target.educt.method = "r2scan-3c"
+                self.target.product.method = "r2scan-3c"
+                self.target.transition_state.method = "r2scan-3c"
+                if "xtb" in self.target.educt.sp_method.lower():
+                    print(
+                        "If xtb was chosen as sp_method r2scan-3c is used for all subsequent steps starting from TS-optimization")
+                    self.target.educt.sp_method = "r2scan-3c"
+                    self.target.product.sp_method = "r2scan-3c"
+                    self.target.transition_state.sp_method = "r2scan-3c"
+                print("slurm_params will be adjusted accordingly")
 
-            self.hpc_driver.shell_command(
-                f"cp NEB/{self.target.transition_state.name}_freq.hess TS/{self.target.transition_state.name}_guess.hess")
+                self.slurm_params_high_mem = SLURM_PARAMS_SMALL_HIGH_MEM
+                self.slurm_params_low_mem = SLURM_PARAMS_SMALL_LOW_MEM
+
+                for atom in self.target.educt.atoms:
+                    if atom not in LOW_MEM_ELEMENTS:
+                        self.slurm_params_high_mem = SLURM_PARAMS_BIG_HIGH_MEM
+                        self.slurm_params_low_mem = SLURM_PARAMS_BIG_LOW_MEM
+                        break
+
             os.chdir("TS")
 
             return self.target.transition_state.ts_opt(self.hpc_driver, self.slurm_params_high_mem, trial=0, upper_limit=MAX_TRIALS)
