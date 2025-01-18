@@ -73,11 +73,11 @@ class HPCDriver:
         command = []
         match job_type.lower():
             case "orca":
-                command = ["ssubo", "-v", version, "-w", walltime, "-m",
+                command = ["ssubo", "-v", str(version), "-w", walltime, "-m",
                            str(mail), "-o", output_file, input_file]
             case "crest":
                 command = ["ssubcrest" "-w", walltime, "-m",
-                           str(mail), "-c", charge, "-u", mult-1, "-o",  output_file, input_file]
+                           str(mail), "-c", str(charge), "-uhf", str(mult-1), "-o",  output_file, input_file]
 
         result = self.run_subprocess(command)
         if not result:
