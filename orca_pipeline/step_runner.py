@@ -364,15 +364,15 @@ class StepRunner:
 
                 if os.path.exists("IRC/QRC"):
                     self.hpc_driver.shell_command(
-                        "cp IRC/*_QRC_Backwards.xyz" "CONF/back.xyz")
+                        "cp IRC/*Backwards.xyz CONF/back.xyz")
                     self.hpc_driver.shell_command(
-                        "cp IRC/*_QRC_Forwards.xyz" "CONF/front.xyz")
+                        "cp IRC/*Forwards.xyz CONF/front.xyz")
                 else:
 
                     self.hpc_driver.shell_command(
-                        "cp IRC/*_IRC_B.xyz" "CONF/back.xyz")
+                        "cp IRC/*IRC_B.xyz CONF/back.xyz")
                     self.hpc_driver.shell_command(
-                        "cp IRC/*_IRC_F.xyz" "CONF/front.xyz")
+                        "cp IRC/*IRC_F.xyz CONF/front.xyz")
                 print("Checking which IRC endpoint is closer to educt")
                 os.chdir("CONF")
                 self.target.educt.to_xyz("educt.xyz")
