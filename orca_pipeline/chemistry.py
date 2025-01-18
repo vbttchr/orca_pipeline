@@ -451,10 +451,12 @@ class Molecule:
                 print("Guess has no significant imaginary frequency. Aborting.")
                 return False
             # input is bassically the same as example 2 from the pyQRC git
+        solvent_formatted = f"CPCM({self.solvent})" if self.solvent else ""
+
         driver.shell_command(
-            f"python -m pyqrc --nproc {slurm_params['nprocs']} --mem {slurm_params['maxcore']} --amp 0.3 --name QRC_Forward --route '{self.method} opt' {self.name}_freq.out ")
+            f"python -m pyqrc --nproc {slurm_params['nprocs']} --mem {slurm_params['maxcore']} --amp 0.3 --name QRC_Forward --route '{self.method} opt {solvent_formatted} ' {self.name}_freq.out ")
         driver.shell_command(
-            f"python -m pyqrc --nproc {slurm_params['nprocs']} --mem {slurm_params['maxcore']} --amp -0.3 --name QRC_Backwards --route '{self.method} opt' {self.name}_freq.out ")
+            f"python -m pyqrc --nproc {slurm_params['nprocs']} --mem {slurm_params['maxcore']} --amp -0.3 --name QRC_Backwards --route '{self.method} opt {solvent_formatted}' {self.name}_freq.out ")
 
         input_name_front = f"{self.name}_freq_QRC_Forward.inp"
         # pyqrc takes basename of input file and appends what is passed in the --name flag
@@ -486,8 +488,8 @@ class Molecule:
 
         if "ORCA TERMINATED NORMALLY" in driver.grep_output('ORCA TERMINATED NORMALLY', input_name_front.split('.')[0] + '.out') and "ORCA TERMINATED NORMALLY" in driver.grep_output('ORCA TERMINATED NORMALLY', input_name_back.split('.')[0] + '.out'):
             print("ORCA terminated normally.")
-            print("Issue during Optimisation check input and output files.")
-            return False
+            print("One or both  of the optimization did not converege.")
+
         print("ORCA did not terminate normally. Retrying.")
         driver.scancel_job(job_id_front)
         driver.scancel_job(job_id_back)
