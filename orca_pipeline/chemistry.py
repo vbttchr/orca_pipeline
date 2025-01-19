@@ -671,12 +671,21 @@ class Molecule:
                                    output_file=f'{self.name}_slurm.out', charge=self.charge, mult=self.mult, solvent=self.solvent, job_type="crest", cwd=cwd)  # submit_job handles conversion from mult to uhf
 
         status = driver.check_job_status(job_id, step="CREST")
-        if status == 'COMPLETED' and driver.grep_output("CREST terminated normally", os.path.join(cwd, f"{self.name}.xtbopt_out.log")):
-            print("[CREST] Conformers generated successfully.")
-            print("OPTIMIZE best confomer")
+        if status == 'COMPLETED':
 
-            self.update_coords_from_xyz(os.path.join(cwd, f"crest_best.xyz"))
-            return True
+            time.sleep(20)
+            output = os.path.join(cwd, f"{self.name}.xtbopt_out.log")
+            crest_best = os.path.join(cwd, f"crest_best.xyz")
+
+            if "CREST terminated normally" in driver.grep_output(output, "CREST terminated normally", flags="-a") and os.path.exists(crest_best):
+                print("[CREST] Conformers generated successfully.")
+                print("OPTIMIZE best confomer")
+
+                self.update_coords_from_xyz(crest_best)
+                return True
+            else:
+                print("[CREST] CREST failed")
+                print(f'{os.getcwd()} current directory')
 
 
 class Reaction:
