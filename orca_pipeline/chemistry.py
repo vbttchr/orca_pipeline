@@ -1071,9 +1071,19 @@ class Reaction:
         for step in [self.educt.name, self.transition_state.name, self.product.name]:
             sp_file = f"SP/{step}_SP.out"
             freq_file = f"SP/{step}_freq.out"
-            if not os.path.exists(sp_file):
+            if not os.path.exists(sp_file) or not os.path.exists(freq_file):
                 raise FileNotFoundError(
-                    f"SP file {sp_file} not found. Run SP calculations first.")
+                    f"SP file {sp_file} or FREQ file {freq_file} not found. Run SP calculations first.")
+            print("Chekcking if reactants are true minima and TS true saddle point")
+
+            imags=driver.grep_output("***imaginary mode***", freq_file).split("\n")
+
+            if len(foo) > 0:
+                if step == self.transition_state.name and len(foo) == 1:
+                    pass
+                else:
+                    raise
+                    
 
             sp_energies.append(float(driver.grep_output(
                 "FINAL SINGLE POINT ENERGY", sp_file).split(" ")[-1]))
