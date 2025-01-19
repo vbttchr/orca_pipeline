@@ -227,6 +227,7 @@ class Molecule:
         # Wait for completion
 
         if status == 'COMPLETED':
+            time.sleep(45)
             if 'HURRAY' in driver.grep_output('HURRAY', input_name.split('.')[0] + '.out'):
                 print("[OPT] Optimisation jobs completed.")
 

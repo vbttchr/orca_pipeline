@@ -354,6 +354,10 @@ class StepRunner:
     def conf_calc(self) -> bool:
         logging.info("Starting conformer calculation.")
         if isinstance(self.target, Molecule):
+            if "xtb" in self.target.method.lower():
+                print(
+                    "Changing method to r2scan-3c to optimize best confomer, crest_best is already xtb2 optimized")
+                self.target.method = "r2scan-3c"
             self.make_folder("CONF")
             os.chdir("CONF")
             success = self.target.get_lowest_confomer(
@@ -368,6 +372,14 @@ class StepRunner:
 
         elif isinstance(self.target, Reaction):
             self.make_folder("CONF")
+            if "xtb" in self.target.method.lower():
+                print(
+                    "Changing method to r2scan-3c to optimize best confomer, crest_best is already xtb2 optimized")
+                self.target.method = "r2scan-3c"
+                self.target.educt.method = "r2scan-3c"
+                self.target.product.method = "r2scan-3c"
+                self.target.transition_state.method = "r2scan-3c"
+                print("SP method will be unchanged")
             if os.path.exists("IRC"):
                 print("Starting conformer calculation from IRC or QRC end points")
 
@@ -410,6 +422,7 @@ class StepRunner:
             if success:
                 print("Conformer calculation successful. Optimizing best confomers")
                 self.make_folder("best_confs_opt")
+                os.chdir("best_confs_opt")
                 return self.target.optimise_reactants(
                     self.hpc_driver, self.slurm_params_low_mem, trial=0, upper_limit=MAX_TRIALS)
             else:
