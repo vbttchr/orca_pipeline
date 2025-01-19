@@ -668,7 +668,7 @@ class Molecule:
         shutil.copy(f"{self.name}.xtbopt.xyz", cwd)
 
         job_id = driver.submit_job(input_file=f"{self.name}.xtbopt.xyz", walltime="120",
-                                   output_file=f'{self.name}_slurm.out', charge=self.charge, mult=self.mult-1, solvent=self.solvent, job_type="crest", cwd=cwd)  # Grimme programs dont want mult rather number of unpaired electrons
+                                   output_file=f'{self.name}_slurm.out', charge=self.charge, mult=self.mult, solvent=self.solvent, job_type="crest", cwd=cwd)  # submit_job handles conversion from mult to uhf
 
         status = driver.check_job_status(job_id, step="CREST")
         if status == 'COMPLETED' and driver.grep_output("CREST terminated normally", os.path.join(cwd, f"{self.name}.xtbopt_out.log")):
