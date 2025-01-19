@@ -673,11 +673,11 @@ class Molecule:
         status = driver.check_job_status(job_id, step="CREST")
         if status == 'COMPLETED':
 
-            time.sleep(20)
+            time.sleep(30)
             output = os.path.join(cwd, f"{self.name}.xtbopt_out.log")
             crest_best = os.path.join(cwd, f"crest_best.xyz")
 
-            if "CREST terminated normally" in driver.grep_output(output, "CREST terminated normally", flags="-a") and os.path.exists(crest_best):
+            if "CREST terminated normally" in driver.grep_output("CREST terminated normally", output, flags="-a") and os.path.exists(crest_best):
                 print("[CREST] Conformers generated successfully.")
                 print("OPTIMIZE best confomer")
 
@@ -685,6 +685,9 @@ class Molecule:
                 return True
             else:
                 print("[CREST] CREST failed")
+                print("grep output")
+                print(driver.grep_output(
+                    "CREST terminated normally", output, flags="-a"))
                 print(f'{os.getcwd()} current directory')
 
 
