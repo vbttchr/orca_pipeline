@@ -679,7 +679,7 @@ class Molecule:
 
             if "CREST terminated normally" in driver.grep_output("CREST terminated normally", output, flags="-a") and os.path.exists(crest_best):
                 print("[CREST] Conformers generated successfully.")
-                print("OPTIMIZE best confomer")
+                print("Updating coordinates from CREST output.")
 
                 self.update_coords_from_xyz(crest_best)
                 return True
@@ -759,8 +759,6 @@ class Reaction:
         """
         Optimises the reactant geometry.
         """
-        if not cwd:
-            cwd = os.getcwd()
 
         results = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
