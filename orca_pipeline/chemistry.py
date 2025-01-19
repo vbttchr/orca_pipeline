@@ -454,7 +454,7 @@ class Molecule:
         solvent_formatted = f"CPCM({self.solvent})" if self.solvent else ""
 
         driver.shell_command(
-            f"python -m pyqrc --nproc {slurm_params['nprocs']} --mem {slurm_params['maxcore']} --amp 0.3 --name QRC_Forward --route '{self.method} opt {solvent_formatted} ' {self.name}_freq.out ")
+            f"python -m pyqrc --nproc {slurm_params['nprocs']} --mem {slurm_params['maxcore']} --amp 0.3 --name QRC_Forwards --route '{self.method} opt {solvent_formatted} ' {self.name}_freq.out ")
         driver.shell_command(
             f"python -m pyqrc --nproc {slurm_params['nprocs']} --mem {slurm_params['maxcore']} --amp -0.3 --name QRC_Backwards --route '{self.method} opt {solvent_formatted}' {self.name}_freq.out ")
 
@@ -657,32 +657,22 @@ class Molecule:
         # for now do everything from commnand since orca can have some problems which xtb does not have
 
         driver.shell_command(
-            f"crest {self.name}_before_crest.xyz --opt vtight --charge {self.charge} --uhf {self.mult -1} --alpb {self.solvent}")
+            f"xtb {self.name}_before_crest.xyz --opt vtight --charge {self.charge} --uhf {self.mult -1} --alpb {self.solvent} --namespace {self.name} ")
 
-        if not os.path.exists("crestopt.xyz"):
+        if not os.path.exists(f"{self.name}.xtbopt.xyz"):
             print("Optimization failed. Aborting.")
             return False
-        shutil.move("crestopt.xyz", f"{self.name}_crestopt.xyz")
-        job_id = driver.submit_job(input_file=f"{self.name}_crestopt.xyz", walltime="120",
+
+        job_id = driver.submit_job(input_file=f"{self.name}.xtbopt.xyz", walltime="120",
                                    output_file=f'{self.name}_slurm.out', charge=self.charge, mult=self.mult-1, solvent=self.solvent, job_type="crest", cwd=cwd)  # Grimme programs dont want mult rather number of unpaired electrons
 
         status = driver.check_job_status(job_id, step="CREST")
-        if status == 'COMPLETED' and driver.grep_output("CREST terminated normally", f'{self.name}_crestopt.log'):
+        if status == 'COMPLETED' and driver.grep_output("CREST terminated normally", os.path.join(cwd, f"{self.name}.xtbopt_out.log")):
             print("[CREST] Conformers generated successfully.")
             print("OPTIMIZE best confomer")
 
-            self.update_coords_from_xyz(f"crest_best.xyz")
-
-            if "xtb" in self.method.lower():
-                self.method = "r2scan-3c"
-
-            if self.geometry_opt(driver, slurm_params):
-
-                return True
-            else:
-                self.update_coords_from_xyz(f"{self.name}_before_crest.xyz")
-                print("[CREST] Failed to optimize best conformer.")
-                return False
+            self.update_coords_from_xyz(os.path.join(cwd, f"crest_best.xyz"))
+            return True
 
 
 class Reaction:
@@ -753,6 +743,9 @@ class Reaction:
         """
         Optimises the reactant geometry.
         """
+        if not cwd:
+            cwd = os.getcwd()
+
         results = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
             results = [
@@ -1003,9 +996,9 @@ class Reaction:
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
 
             results.append(executor.submit(
-                self.educt.get_lowest_confomer, driver, slurm_params, trial, upper_limit, cwd="educt"))
+                self.educt.get_lowest_confomer, driver, slurm_params, trial, upper_limit, cwd="educt_confs"))
 
             results.append(executor.submit(
-                self.product.get_lowest_confomer, driver, slurm_params, trial, upper_limit, cwd="product"))
+                self.product.get_lowest_confomer, driver, slurm_params, trial, upper_limit, cwd="product_confs"))
 
         return all([result.result() for result in results])

@@ -119,15 +119,15 @@ class StepRunner:
                             logging.error(
                                 "Cannot resume SP without TS step.")
                             sys.exit(1)
-                        if os.path.exists("OPT") and not os.path.exists("CONF/educt"):
+                        if os.path.exists("OPT") and not os.path.exists("CONF/best_confs_opt"):
                             self.target.educt = Molecule.from_xyz(filepath="OPT/educt_opt.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult,
                                                                   solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="educt")
                             self.target.product = Molecule.from_xyz(filepath="OPT/product_opt.xyz", charge=self.target.product.charge, mult=self.target.product.mult,
                                                                     solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product")
-                        elif os.path.exists("CONF/educt") and os.path.exists("CONF/product"):
-                            self.target.educt = Molecule.from_xyz(filepath="CONF/educt/educt_opt.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult,
+                        elif os.path.exists("CONF/best_confs_opt"):
+                            self.target.educt = Molecule.from_xyz(filepath="CONF/best_confs/educt_opt.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult,
                                                                   solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="educt")
-                            self.target.product = Molecule.from_xyz(filepath="CONF/product/product_opt.xyz", charge=self.target.product.charge, mult=self.target.product.mult,
+                            self.target.product = Molecule.from_xyz(filepath="CONF/best_confs/product_opt.xyz", charge=self.target.product.charge, mult=self.target.product.mult,
                                                                     solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product")
                         self.target.transition_state = Molecule.from_xyz(filepath="TS/ts_guess_TS_opt.xyz", charge=self.target.educt.charge,
                                                                          mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="ts")
@@ -356,7 +356,16 @@ class StepRunner:
         if isinstance(self.target, Molecule):
             self.make_folder("CONF")
             os.chdir("CONF")
-            return self.target.get_lowest_confomer(self.hpc_driver, self.slurm_params_low_mem)
+            success = self.target.get_lowest_confomer(
+                self.hpc_driver, self.slurm_params_low_mem)
+            if success:
+                print("Conformer calculation successful. Optimizing best confomer")
+                return self.target.geometry_opt(
+                    self.hpc_driver, self.slurm_params_low_mem, trial=0, upper_limit=MAX_TRIALS)
+            else:
+                print("Conformer calculation failed.")
+                return False
+
         elif isinstance(self.target, Reaction):
             self.make_folder("CONF")
             if os.path.exists("IRC"):
@@ -394,9 +403,19 @@ class StepRunner:
                 print("Starting conformer calculation form given reactants")
                 os.chdir("CONF")
 
-            self.make_folder("educt")
-            self.make_folder("product")
-            return self.target.get_lowest_confomers(self.hpc_driver, self.slurm_params_low_mem)
+            self.make_folder("educt_confs")
+            self.make_folder("product_confs")
+            success = self.target.get_lowest_confomers(
+                self.hpc_driver, self.slurm_params_low_mem)
+            if success:
+                print("Conformer calculation successful. Optimizing best confomers")
+                self.make_folder("best_confs_opt")
+                return self.target.optimise_reactants(
+                    self.hpc_driver, self.slurm_params_low_mem, trial=0, upper_limit=MAX_TRIALS)
+            else:
+                print("Conformer calculation failed.")
+                return False
+
         print("Unsupported target type for conformer calculation.")
         return False
 
