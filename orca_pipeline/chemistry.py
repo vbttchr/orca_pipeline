@@ -595,15 +595,35 @@ class Molecule:
                 slurm_params: dict,
                 trial: int = 0,
                 upper_limit: int = 5,
+                with_freq=True,
                 ) -> bool:
         """
         Runs a single point calculation on the molecule iwth the sp_method given.
         Default is r2scanh def2-qzvpp d4.
 
         """
-        # TODO add freq_job add gathering of energies.
 
         solvent_formatted = f"CPCM({self.solvent})" if self.solvent else ""
+
+        if "xtb" in self.sp_method.lower():
+            print(
+                "SP calculation will not be conducted with semiemporical methods. Switching to r2scanh def2-qzvpp d4 defgrid 3 verytightscf.")
+            self.sp_method = "r2scanh def2-qzvpp d4 "
+
+        if with_freq:
+            print("Doing freq job to get THERMO data")
+            if os.path.exists(f"{self.name}_freq.out"):
+                print("Freq job already done")
+            else:
+
+                slurm_params_freq = slurm_params.copy()
+                slurm_params_freq['maxcore'] = slurm_params_freq['maxcore']*4
+                if slurm_params_freq["maxcore"] * slurm_params_freq["nprocs"] > 500000:
+                    slurm_params_freq["maxcore"] = slurm_params_freq["maxcore"] * \
+                        (3/4)
+
+                self.freq_job(
+                    driver=driver, slurm_params=slurm_params, ts=False)
 
         trial += 1
         print(f"[SP] Trial {trial} ")
