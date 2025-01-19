@@ -207,7 +207,7 @@ class Molecule:
         print(f"Starting optimisation of {self.name}")
 
         input_name = f"{self.name}_opt.inp"
-        opt_block = "tightscf tightopt" if tight else "opt"
+        opt_block = "tightscf opt" if tight else "opt"
 
         input = (
             f"!{self.method} {solvent_formatted} {opt_block}\n"
