@@ -85,7 +85,7 @@ class HPCDriver:
                 command = ["ssubo", "-v", str(version), "-w", walltime, "-m",
                            str(mail), "-o", output_file, input_file]
             case "crest":
-                command = ["ssubcrest" "-w", walltime, "-m",
+                command = ["ssubcrest", "-w", walltime, "-m",
                            str(mail), "-c", str(charge), "-u", str(mult-1), "-s", str(solvent), "-o",  output_file, input_file]
 
         result = self.run_subprocess(command, cwd=cwd)
