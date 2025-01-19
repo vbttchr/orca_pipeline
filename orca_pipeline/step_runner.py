@@ -141,7 +141,24 @@ class StepRunner:
                                                                   solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="educt_opt")
                             self.target.product = Molecule.from_xyz(filepath="OPT/product_opt.xyz", charge=self.target.product.charge, mult=self.target.product.mult,
                                                                     solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product_opt")
-                        # no need to check if IRC is present, since confomere function does this
+                case "PLOT":
+                    if isinstance(self.target, Molecule):
+                        print("Not supported for Molecule objects")
+                        sys.exit(1)
+
+                    if not os.path.exists("SP"):
+                        logging.error(
+                            "Cannot resume PLOT without SP step.")
+                        sys.exit(1)
+                    method = self.target.educt.method if not "xtb" in self.target.educt.method.lower() else "r2scan-3c"
+                    self.target.educt = Molecule.from_xyz(filepath="SP/educt.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult, method=self.target.educt.method, sp_method=self.target.educt.sp_method,
+                                                          solvent=self.target.educt.solvent, name="educt")
+                    self.target.product = Molecule.from_xyz(filepath="SP/product.xyz", charge=self.target.product.charge, mult=self.target.product.mult, method=self.target.product.method, sp_method=self.target.product.sp_method,
+                                                            solvent=self.target.product.solvent, name="product")
+                    self.target.transition_state = Molecule.from_xyz(filepath="SP/ts.xyz", charge=self.target.transition_state.charge, mult=self.target.transition_state.mult, method=self.target.transition_state.method, sp_method=self.target.transition_state.sp_method,
+                                                                     solvent=self.target.transition_state.solvent, name="ts")
+
+                    #
 
     def make_folder(self, dir_name: str) -> None:
         """
@@ -194,7 +211,8 @@ class StepRunner:
             "TS": self.ts_opt,
             "IRC": self.irc_job,
             "SP": self.sp_calc,
-            "CONF": self.conf_calc
+            "CONF": self.conf_calc,
+            "PLOT": self.plot
         }
 
         step_function: Callable[[], bool] = steps_mapping.get(step.upper())
@@ -431,6 +449,15 @@ class StepRunner:
 
         print("Unsupported target type for conformer calculation.")
         return False
+
+    def plot(self) -> bool:
+        if isinstance(self.target, Molecule):
+            print("Not supported for Molecule objects")
+            return False
+
+        # TODO implement plotting for reaction objects
+        print("Gathering energies for plot wil be saved to CSV in parent directory")
+        return self.target.get_reaction_energies()
 
     def handle_failed_neb(self,  uper_limit):
 

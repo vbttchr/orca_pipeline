@@ -1043,12 +1043,13 @@ class Reaction:
 
         return all([result.result() for result in results])
 
-    def get_reaction_energies(self) -> pd.DataFrame:
+    def get_reaction_energies(self) -> bool:
         """
         self.energies = pd.DataFrame(
             columns=["step", "single_point_energy", "free_energy_correction" "inner_energy_correction","enthalpy_correction"  "entropy",  "temperature","method", "sp_method"])
 
         """
+        # TODO maybe better to return false and not raise error
         driver = HPCDriver()
         if os.path.exists(f"{self.name}_energies.csv"):
             return pd.read_csv(f"{self.name}_energies.csv")
@@ -1117,4 +1118,4 @@ class Reaction:
         self.energies = pd.DataFrame(
             {"step": steps, "single_point_energy": sp_energies, "free_energy_correction": free_energy_corrections, "inner_energy_correction": inner_energy_corrections, "enthalpy_correction": enthalpy_corrections, "entropy": entropies, "temperature": temperatures, "method": methods, "sp_method": sp_methods, "solvent": solvents})
         self.energies.to_csv(f"{self.name}_energies.csv", index=False)
-        return self.energies
+        return True
