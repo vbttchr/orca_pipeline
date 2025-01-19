@@ -663,6 +663,10 @@ class Molecule:
             print("Optimization failed. Aborting.")
             return False
 
+        print("Optimization done. Starting CREST")
+        print("Copying optimized structure to CREST directory")
+        shutil.copy(f"{self.name}.xtbopt.xyz", cwd)
+
         job_id = driver.submit_job(input_file=f"{self.name}.xtbopt.xyz", walltime="120",
                                    output_file=f'{self.name}_slurm.out', charge=self.charge, mult=self.mult-1, solvent=self.solvent, job_type="crest", cwd=cwd)  # Grimme programs dont want mult rather number of unpaired electrons
 
