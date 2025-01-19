@@ -22,6 +22,9 @@ from orca_pipeline.hpc_driver import HPCDriver
 # TODO add censo option to confomers and maybe GOAT.
 # TODO For the Future maybe usew tight opt Settings for TS opt and add this also to the final optimisation of the sampled conformers
 # TODO Add option to caluclate solvation energy with cosmors
+# TODO add something to reaction to do stuff with seperated reactants.
+# TODO  add correction to G if we go from 2 to 1 species etc.
+# Do we need to do micokinetic modeling to get concentraitions?
 
 ### ---UTILS----###
 
@@ -255,7 +258,7 @@ class Molecule:
         driver.shell_command(
             "rm -rf *.gbw pmix* *densities*  slurm* ")
         self.update_coords_from_xyz(f"{input_name.split('.')[0]}.xyz")
-        return self.geometry_opt(driver=driver, slurm_params=slurm_params, trial=trial, upper_limit=upper_limit)
+        return self.geometry_opt(driver=driver, slurm_params=slurm_params, trial=trial, upper_limit=upper_limit, tigh=tight)
 
     ### ---FREQ----###
 
@@ -1049,7 +1052,7 @@ class Reaction:
             columns=["step", "single_point_energy", "free_energy_correction" "inner_energy_correction","enthalpy_correction"  "entropy",  "temperature","method", "sp_method"])
 
         """
-        # TODO maybe better to return false and not raise error
+
         driver = HPCDriver()
         if os.path.exists(f"{self.name}_energies.csv"):
             return pd.read_csv(f"{self.name}_energies.csv")
@@ -1085,8 +1088,8 @@ class Reaction:
                 if step == self.transition_state.name and len(imags) == 1:
                     pass
                 else:
-                    raise ValueError(
-                        f"Step {step} is not a true minimum or saddle point. Check the frequency calculation.")
+                    print(
+                        f"Step {step} is not a true minimum or saddle point. Check the frequency calculation and take the results with caution.")
 
             sp_energies.append(float(driver.grep_output(
                 "FINAL SINGLE POINT ENERGY", sp_file).split(" ")[-1]))
