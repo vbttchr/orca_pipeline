@@ -155,8 +155,8 @@ class StepRunner:
                                                           solvent=self.target.educt.solvent, name="educt")
                     self.target.product = Molecule.from_xyz(filepath="SP/product.xyz", charge=self.target.product.charge, mult=self.target.product.mult, method=self.target.product.method, sp_method=self.target.product.sp_method,
                                                             solvent=self.target.product.solvent, name="product")
-                    self.target.transition_state = Molecule.from_xyz(filepath="SP/ts.xyz", charge=self.target.transition_state.charge, mult=self.target.transition_state.mult, method=self.target.transition_state.method, sp_method=self.target.transition_state.sp_method,
-                                                                     solvent=self.target.transition_state.solvent, name="ts")
+                    self.target.transition_state = Molecule.from_xyz(filepath="SP/ts.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult, method=self.target.educt.method, sp_method=self.target.educt.sp_method,
+                                                                     solvent=self.target.educt.solvent, name="ts")
 
                     #
 
