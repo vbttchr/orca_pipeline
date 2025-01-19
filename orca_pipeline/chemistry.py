@@ -7,6 +7,8 @@ import re
 import shutil
 import concurrent.futures
 import pandas as pd
+import matplotlib.pyplot as plt
+
 
 # Own imports
 from orca_pipeline.constants import MAX_TRIALS, RETRY_DELAY, FREQ_THRESHOLD
@@ -173,7 +175,7 @@ class Molecule:
 
     ### ---OPT----###
 
-    def geometry_opt(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = MAX_TRIALS) -> bool:
+    def geometry_opt(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = MAX_TRIALS, tight: bool = False) -> bool:
         """
         Optimises the geometry of the molecule.
         returns True if the optimisation was successful, False otherwise.
@@ -205,9 +207,10 @@ class Molecule:
         print(f"Starting optimisation of {self.name}")
 
         input_name = f"{self.name}_opt.inp"
+        opt_block = "tightscf tightopt" if tight else "opt"
 
         input = (
-            f"!{self.method} {solvent_formatted} opt\n"
+            f"!{self.method} {solvent_formatted} {opt_block}\n"
             f"%pal nprocs {slurm_params['nprocs']} end\n"
             f"%maxcore {slurm_params['maxcore']}\n"
             f"*xyz {self.charge} {self.mult} \n"
@@ -1037,3 +1040,9 @@ class Reaction:
                 self.product.get_lowest_confomer, driver, slurm_params, trial, upper_limit, cwd="product_confs"))
 
         return all([result.result() for result in results])
+
+    def get_reaction_energies(self) -> pd.DataFrame:
+        """
+        self.energies = pd.DataFrame(
+            columns=["step", "single_point_energy", "free_energy_correction" "inner_energy_correction", "entropy", "solvation_correction" "temperature" "method"])
+        """
