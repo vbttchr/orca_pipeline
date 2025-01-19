@@ -20,6 +20,8 @@ from orca_pipeline.hpc_driver import HPCDriver
 # TODO add plotting function
 # TODO add functionality for plotting function to several Steps.
 # TODO add censo option to confomers and maybe GOAT.
+# TODO For the Future maybe usew tight opt Settings for TS opt and add this also to the final optimisation of the sampled conformers
+# TODO Add option to caluclate solvation energy with cosmors
 
 ### ---UTILS----###
 
@@ -736,7 +738,7 @@ class Reaction:
         self.charge = educt.charge
         self.mult = educt.mult
         self.energies = pd.DataFrame(
-            columns=["step", "single_point_energy", "free_energy_correction" "inner_energy_correction", "entropy", "solvation_correction" "temperature" "method"])
+            columns=["step", "single_point_energy", "free_energy_correction" "inner_energy_correction", "entropy",  "temperature", "method"])
         if energies_path:
             self.energies = pd.read_csv(energies_path)
 
@@ -779,7 +781,7 @@ class Reaction:
                                              solvent=solvent, name="ts", method=method, sp_method=sp_method) if transition_state_filepath else None
         return cls(educt=educt, product=product, transition_state=transition_state, nimages=nimages, method=method, solvent=solvent, sp_method=sp_method, name=name, fast=fast, zoom=zoom, energies_path=energy_file)
 
-    def optimise_reactants(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = MAX_TRIALS) -> bool:
+    def optimise_reactants(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = MAX_TRIALS, tight: bool = False) -> bool:
         """
         Optimises the reactant geometry.
         """
@@ -788,9 +790,9 @@ class Reaction:
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
             results = [
                 executor.submit(self.educt.geometry_opt, driver,
-                                slurm_params, trial, upper_limit),
+                                slurm_params, trial, upper_limit, tight),
                 executor.submit(self.product.geometry_opt, driver,
-                                slurm_params, trial, upper_limit)
+                                slurm_params, trial, upper_limit, tight)
             ]
 
         return all([result.result() for result in results])
@@ -1044,5 +1046,28 @@ class Reaction:
     def get_reaction_energies(self) -> pd.DataFrame:
         """
         self.energies = pd.DataFrame(
-            columns=["step", "single_point_energy", "free_energy_correction" "inner_energy_correction", "entropy", "solvation_correction" "temperature" "method"])
+            columns=["step", "single_point_energy", "free_energy_correction" "inner_energy_correction", "entropy",  "temperature", "method"])
         """
+        driver = HPCDriver()
+
+        if not os.path.exists("SP"):
+            raise FileNotFoundError(
+                "SP folder not found. Run SP calculations first.")
+
+        steps = ["educt", "transition_state", "product"]
+        sp_energies = []
+        free_energy_corrections = []
+        inner_energy_corrections = []
+        entropies = []
+        solvation_corrections = []
+        temperatures = []
+        methods = []
+
+        for step in [self.educt.name, self.transition_state.name, self.product.name]:
+            sp_file = f"{step}_SP.out"
+            if not os.path.exists(sp_file):
+                raise FileNotFoundError(
+                    f"SP file {sp_file} not found. Run SP calculations first.")
+
+            sp_energy = float(driver.grep_output(
+                "FINAL SINGLE POINT ENERGY", sp_file).split(" ")[-1])

@@ -365,7 +365,7 @@ class StepRunner:
             if success:
                 print("Conformer calculation successful. Optimizing best confomer")
                 return self.target.geometry_opt(
-                    self.hpc_driver, self.slurm_params_low_mem, trial=0, upper_limit=MAX_TRIALS)
+                    self.hpc_driver, self.slurm_params_low_mem, trial=0, upper_limit=MAX_TRIALS, tight=True)
             else:
                 print("Conformer calculation failed.")
                 return False
@@ -424,7 +424,7 @@ class StepRunner:
                 self.make_folder("best_confs_opt")
                 os.chdir("best_confs_opt")
                 return self.target.optimise_reactants(
-                    self.hpc_driver, self.slurm_params_low_mem, trial=0, upper_limit=MAX_TRIALS)
+                    self.hpc_driver, self.slurm_params_low_mem, trial=0, upper_limit=MAX_TRIALS, tight=True)
             else:
                 print("Conformer calculation failed.")
                 return False
