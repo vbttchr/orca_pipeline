@@ -149,11 +149,11 @@ class HPCDriver:
         """
         return self.run_subprocess(command, shell=True, check=False, exit_on_error=False, cwd=cwd)
 
-    def grep_output(self, pattern: str, file_path: str, flags: str = None) -> str:
+    def grep_output(self, pattern: str, file_path: str, flags: str = "") -> str:
         """
         Wrapper around grep to return matched lines as a string.
         """
-        command = f"grep {flags} '{pattern}' {file_path}"
+        command = f"grep {flags} '{pattern}' {file_path} "
         result = self.shell_command(command)
         if result and result.stdout:
             return result.stdout.strip()
