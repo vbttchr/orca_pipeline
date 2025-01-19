@@ -738,7 +738,7 @@ class Reaction:
         self.charge = educt.charge
         self.mult = educt.mult
         self.energies = pd.DataFrame(
-            columns=["step", "single_point_energy", "free_energy_correction" "inner_energy_correction", "entropy",  "temperature", "method"])
+            columns=["step", "single_point_energy", "free_energy_correction" "inner_energy_correction", "enthalpy_correction", "entropy",   "temperature", "method", "sp_method", "solvent"])
         if energies_path:
             self.energies = pd.read_csv(energies_path)
 
@@ -1046,9 +1046,12 @@ class Reaction:
     def get_reaction_energies(self) -> pd.DataFrame:
         """
         self.energies = pd.DataFrame(
-            columns=["step", "single_point_energy", "free_energy_correction" "inner_energy_correction", "entropy",  "temperature", "method"])
+            columns=["step", "single_point_energy", "free_energy_correction" "inner_energy_correction","enthalpy_correction"  "entropy",  "temperature","method", "sp_method"])
+
         """
         driver = HPCDriver()
+        if os.path.exists(f"{self.name}_energies.csv"):
+            return pd.read_csv(f"{self.name}_energies.csv")
 
         if not os.path.exists("SP"):
             raise FileNotFoundError(
@@ -1058,16 +1061,48 @@ class Reaction:
         sp_energies = []
         free_energy_corrections = []
         inner_energy_corrections = []
+        enthalpy_corrections = []
         entropies = []
-        solvation_corrections = []
         temperatures = []
         methods = []
+        sp_methods = []
+        solvents = []
 
         for step in [self.educt.name, self.transition_state.name, self.product.name]:
-            sp_file = f"{step}_SP.out"
+            sp_file = f"SP/{step}_SP.out"
+            freq_file = f"SP/{step}_freq.out"
             if not os.path.exists(sp_file):
                 raise FileNotFoundError(
                     f"SP file {sp_file} not found. Run SP calculations first.")
 
-            sp_energy = float(driver.grep_output(
-                "FINAL SINGLE POINT ENERGY", sp_file).split(" ")[-1])
+            sp_energies.append(float(driver.grep_output(
+                "FINAL SINGLE POINT ENERGY", sp_file).split(" ")[-1]))
+            # maybe it is super consistent and we can just count where it is. This is kinda fool proofed
+
+            tmp = driver.grep_output("G-E(el)", freq_file).split(" ")
+            index = tmp.index("Eh") - 1
+            free_energy_corrections.append(float(tmp[index]))
+
+            tmp = driver.grep_output("Total correction", freq_file).split(" ")
+            index = tmp.index("Eh") - 1
+            inner_energy_corrections.append(float(tmp[index]))
+
+            tmp = driver.grep_output(
+                "Thermal Enthalpy correction", freq_file).split(" ")
+            index = tmp.index("Eh") - 1
+            enthalpy_corrections.append(float(tmp[index]))
+
+            tmp = driver.grep_output(
+                "Final entropy term", freq_file).split(" ")
+            index = tmp.index("Eh") - 1
+            entropies.append(float(tmp[index]))
+            temperatures.append(float(driver.grep_output(
+                "Temperature", freq_file).split(" ")[-2]))
+            methods.append(self.educt.method)
+            sp_methods.append(self.educt.sp_method)
+            solvents.append(self.educt.solvent)
+
+        self.energies = pd.DataFrame(
+            {"step": steps, "single_point_energy": sp_energies, "free_energy_correction": free_energy_corrections, "inner_energy_correction": inner_energy_corrections, "enthalpy_correction": enthalpy_corrections, "entropy": entropies, "temperature": temperatures, "method": methods, "sp_method": sp_methods, "solvent": solvents})
+        self.energies.to_csv(f"{self.name}_energies.csv", index=False)
+        return self.energies
