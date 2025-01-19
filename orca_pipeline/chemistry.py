@@ -1076,14 +1076,16 @@ class Reaction:
                     f"SP file {sp_file} or FREQ file {freq_file} not found. Run SP calculations first.")
             print("Chekcking if reactants are true minima and TS true saddle point")
 
-            imags=driver.grep_output("***imaginary mode***", freq_file).split("\n")
+            imags = driver.grep_output(
+                "***imaginary mode***", freq_file).split("\n")
+            imags = [line for line in imags if line.strip() != ""]
 
-            if len(foo) > 0:
-                if step == self.transition_state.name and len(foo) == 1:
+            if len(imags) > 0:
+                if step == self.transition_state.name and len(imags) == 1:
                     pass
                 else:
-                    raise
-                    
+                    raise ValueError(
+                        f"Step {step} is not a true minimum or saddle point. Check the frequency calculation.")
 
             sp_energies.append(float(driver.grep_output(
                 "FINAL SINGLE POINT ENERGY", sp_file).split(" ")[-1]))
