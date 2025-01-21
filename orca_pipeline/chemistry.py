@@ -743,7 +743,7 @@ class Molecule:
 
         if status == 'COMPLETED' and "ORCA TERMINATED NORMALLY" in driver.grep_output("ORCA TERMINATED NORMALLY", input_name.split('.')[0] + '.out'):
             print("[FOD] FOD calculation completed successfully.")
-            # TODO make cube files directly
+
             return True
         else:
             # TODO think about restart if we want it here
