@@ -87,6 +87,20 @@ class HPCDriver:
             case "crest":
                 command = ["ssubcrest", "-w", walltime, "-m",
                            str(mail), "-c", str(charge), "-u", str(mult-1), "-s", str(solvent), "-o",  output_file, input_file]
+            case "fod":
+                nprocs = 1
+                maxcore = 1000
+                orca_out = input_file.replace(".inp", ".out")
+
+                orca_path = self.shell_command("which orca").stdout.strip()
+                with open(input_file, 'r') as f:
+                    for line in f:
+                        if "nprocs" in line:
+                            nprocs = int(line.split()[2])
+                        if "maxcore" in line:
+                            maxcore = int(line.split()[1])
+                command = [
+                    "sbatch", "-n", str(nprocs), "--mem-per-cpu", str(maxcore), f'--wrap="{orca_path} {input_file} > {orca_out}"']
 
         result = self.run_subprocess(command, cwd=cwd)
         if not result:
@@ -99,7 +113,7 @@ class HPCDriver:
                 print(f"Job submitted with ID: {job_id}")
                 return job_id
 
-        print(f"Failed to submit job {input_file}")
+        print(f"Failed to get job_id for {input_file}")
         sys.exit(1)
 
     def check_job_status(self, job_id: str, interval: int = 45, step: str = "", timeout: int = 60) -> str:

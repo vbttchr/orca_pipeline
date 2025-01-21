@@ -303,8 +303,10 @@ class StepRunner:
         if isinstance(self.target, Reaction):
             self.make_folder("TS")
             if not "xtb" in self.target.educt.method.lower():
-                self.hpc_driver.shell_command(
-                    f"cp NEB/{self.target.transition_state.name}_freq.hess TS/{self.target.transition_state.name}_guess.hess")
+                if os.path.exists(f"NEB/{self.target.transition_state.name}_freq.hess"):
+
+                    self.hpc_driver.shell_command(
+                        f"cp NEB/{self.target.transition_state.name}_freq.hess TS/{self.target.transition_state.name}_guess.hess")
             else:
                 print(
                     "If xtb was chosen as method r2scan-3c is used for all subsequent steps starting from TS-optimization")

@@ -360,7 +360,7 @@ class Molecule:
                 shutil.move(f'{self.name}_freq.hess',
                             f'{self.name}_guess.hess')
 
-            # step_runner handles hess copying. If run from other script, copy hess file to current directory.
+            # step_runner checks if a hess is present in NEB copyies it. If one wants to use antohter hess, one can copy it to the guess.hess file
         if not os.path.exists(f'{self.name}_guess.hess'):
             print("Hessian file not found. Doing freq job on guess.")
             if not self.freq_job(driver=driver, slurm_params=slurm_params, ts=True):
@@ -714,6 +714,41 @@ class Molecule:
                 print(driver.grep_output(
                     "CREST terminated normally", output, flags="-a"))
                 print(f'{os.getcwd()} current directory')
+
+    def fod_calc(self, driver, slurm_params, trial=0, upper_limit=5):
+        trial += 1
+        print(f"[FOD] Trial {trial} ")
+        if trial > upper_limit:
+            print("[FOD] Too many trials, aborting.")
+            return False
+        print(f"[FOD] Generating FOD for {self.name}")
+        print(f"ORCA needs to be excuted in same dir, else density plots are not possible")
+        print(
+            f"FOD is currently conducted with default settings -> TPSS def2-TZVP at 5000K")
+
+        input_name = f"{self.name}_FOD.inp"
+        fod_input = (f"!FOD\n"
+                     f"pal nprocs {slurm_params['nprocs']} end\n"
+                     f"maxcore {slurm_params['maxcore']}\n"
+                     f"*xyz {self.charge} {self.mult} \n"
+                     f"{self.get_xyz_block()}*")
+
+        with open(input_name, "w") as f:
+            f.write(fod_input)
+
+        job_id = driver.submit_job(
+            input_name, input_name.split('.')[0] + '_slurm.out', job_type="fod")
+
+        status = driver.check_job_status(job_id, step="FOD")
+
+        if status == 'COMPLETED' and "ORCA TERMINATED NORMALLY" in driver.grep_output("ORCA TERMINATED NORMALLY", input_name.split('.')[0] + '.out'):
+            print("[FOD] FOD calculation completed successfully.")
+            # TODO make cube files directly
+            return True
+        else:
+            # TODO think about restart if we want it here
+            print("[FOD] FOD calculation failed.")
+            return False
 
 
 class Reaction:
