@@ -448,17 +448,26 @@ class Molecule:
             return False
 
         if trial == 1:
-            with open("QRC", "w") as f:
-                f.write("")
 
-            slurm_params_freq = slurm_params.copy()
-            slurm_params_freq['maxcore'] = slurm_params_freq['maxcore']*4
-            print("Doing freq job on guess.")
-            print("Deleting old hess and gbw files")
-            driver.shell_command("rm -rf *.gbw *.hess")
-            if not self.freq_job(driver=driver, slurm_params=slurm_params_freq, ts=True, version=504):
-                print("Guess has no significant imaginary frequency. Aborting.")
-                return False
+            if not os.path.exists("QRC"):
+
+                with open("QRC", "w") as f:
+                    f.write("")
+
+                slurm_params_freq = slurm_params.copy()
+                slurm_params_freq['maxcore'] = slurm_params_freq['maxcore']*4
+                print("Doing freq job on guess.")
+                print("Deleting old hess and gbw files")
+                driver.shell_command("rm -rf *.gbw *.hess")
+                if not self.freq_job(driver=driver, slurm_params=slurm_params_freq, ts=True, version=504):
+                    print("Guess has no significant imaginary frequency. Aborting.")
+                    return False
+            elif not os.path.exists(f"{self.name}_freq.hess"):
+                print("Hessian file not found. Doing freq job on guess.")
+                if not self.freq_job(driver=driver, slurm_params=slurm_params_freq, ts=True, version=504):
+                    print("Guess has no significant imaginary frequency. Aborting.")
+                    return False
+
             # input is bassically the same as example 2 from the pyQRC git
         solvent_formatted = f"CPCM({self.solvent})" if self.solvent else ""
 
@@ -472,9 +481,9 @@ class Molecule:
         input_name_back = f"{self.name}_freq_QRC_Backwards.inp"
 
         job_id_front = driver.submit_job(
-            input_name_front, input_name_front.split('.')[0] + '_slurm.out')
+            input_file=input_name_front, output_file=input_name_front.split('.')[0] + '_slurm.out', job_type="orca")
         job_id_back = driver.submit_job(
-            input_name_back, input_name_back.split('.')[0] + '_slurm.out')
+            input_file=input_name_back, output_file=input_name_back.split('.')[0] + '_slurm.out', job_type="orca")
 
         statuses = []
         with concurrent.futures.ThreadPoolExecutor() as executor:

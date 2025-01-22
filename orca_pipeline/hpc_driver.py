@@ -88,6 +88,7 @@ class HPCDriver:
                 command = ["ssubcrest", "-w", walltime, "-m",
                            str(mail), "-c", str(charge), "-u", str(mult-1), "-s", str(solvent), "-o",  output_file, input_file]
             case "fod":
+
                 nprocs = 1
                 maxcore = 1000
                 orca_out = input_file.replace(".inp", ".out")
