@@ -448,14 +448,14 @@ class Molecule:
             return False
 
         if trial == 1:
+            slurm_params_freq = slurm_params.copy()
+            slurm_params_freq['maxcore'] = slurm_params_freq['maxcore']*4
 
             if not os.path.exists("QRC"):
 
                 with open("QRC", "w") as f:
                     f.write("")
 
-                slurm_params_freq = slurm_params.copy()
-                slurm_params_freq['maxcore'] = slurm_params_freq['maxcore']*4
                 print("Doing freq job on guess.")
                 print("Deleting old hess and gbw files")
                 driver.shell_command("rm -rf *.gbw *.hess")
