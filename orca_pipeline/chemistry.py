@@ -480,6 +480,9 @@ class Molecule:
         # pyqrc takes basename of input file and appends what is passed in the --name flag
         input_name_back = f"{self.name}_freq_QRC_Backwards.inp"
 
+        # submission fails sometimes, yet when I test it manually it works.  wait 30 sek to ensure all files are present
+        time.sleep(30)
+
         job_id_front = driver.submit_job(
             input_file=input_name_front, output_file=input_name_front.split('.')[0] + '_slurm.out', job_type="orca")
         job_id_back = driver.submit_job(
