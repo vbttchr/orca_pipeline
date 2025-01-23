@@ -544,6 +544,7 @@ class Molecule:
             self.method = "r2scan-3c"
         trial += 1
         # if trial > upper_limit/2:
+        """
         if trial == 1:
             print("[IRC] seems to have an issue try with qrc. QRC has 3 trials")
             return self.qrc_job(driver=driver, slurm_params=slurm_params, trial=trial-1, upper_limit=upper_limit/2)
@@ -551,6 +552,7 @@ class Molecule:
         if trial > upper_limit:
             print("[IRC] Too many trials, aborting.")
             return False
+        """
 
         if trial == 1:
 
