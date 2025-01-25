@@ -125,9 +125,9 @@ class StepRunner:
                             self.target.product = Molecule.from_xyz(filepath="OPT/product_opt.xyz", charge=self.target.product.charge, mult=self.target.product.mult,
                                                                     solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product")
                         elif os.path.exists("CONF/best_confs_opt"):
-                            self.target.educt = Molecule.from_xyz(filepath="CONF/best_confs/educt_opt.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult,
+                            self.target.educt = Molecule.from_xyz(filepath="CONF/best_confs_opt/educt_opt.xyz", charge=self.target.educt.charge, mult=self.target.educt.mult,
                                                                   solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="educt")
-                            self.target.product = Molecule.from_xyz(filepath="CONF/best_confs/product_opt.xyz", charge=self.target.product.charge, mult=self.target.product.mult,
+                            self.target.product = Molecule.from_xyz(filepath="CONF/best_confs_opt/educt_opt.xyz", charge=self.target.product.charge, mult=self.target.product.mult,
                                                                     solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product")
                         self.target.transition_state = Molecule.from_xyz(filepath="TS/ts_guess_TS_opt.xyz", charge=self.target.educt.charge,
                                                                          mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="ts")
