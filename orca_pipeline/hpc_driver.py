@@ -158,11 +158,11 @@ class HPCDriver:
         """
         self.run_subprocess(['scancel', job_id], exit_on_error=False)
 
-    def shell_command(self, command: str, cwd=None) -> Optional[subprocess.CompletedProcess]:
+    def shell_command(self, command: str, cwd=None, timeout: int = 60) -> Optional[subprocess.CompletedProcess]:
         """
         Wrapper to run an arbitrary shell command for convenience (e.g., grep, cp, rm).
         """
-        return self.run_subprocess(command, shell=True, check=False, exit_on_error=False, cwd=cwd)
+        return self.run_subprocess(command, shell=True, check=False, exit_on_error=False, cwd=cwd, timneout=timeout)
 
     def grep_output(self, pattern: str, file_path: str, flags: str = "") -> str:
         """

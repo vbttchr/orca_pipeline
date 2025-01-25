@@ -697,7 +697,7 @@ class Molecule:
         # for now do everything from commnand since orca can have some problems which xtb does not have
 
         driver.shell_command(
-            f"xtb {self.name}_before_crest.xyz --opt vtight --charge {self.charge} --uhf {self.mult -1} --alpb {self.solvent} --namespace {self.name} ")
+            f"xtb {self.name}_before_crest.xyz --opt vtight --charge {self.charge} --uhf {self.mult -1} --alpb {self.solvent} --namespace {self.name} ", timeout=1200)
 
         if not os.path.exists(f"{self.name}.xtbopt.xyz"):
             print("Optimization failed. Aborting.")
