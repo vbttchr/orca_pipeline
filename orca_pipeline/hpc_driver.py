@@ -162,7 +162,7 @@ class HPCDriver:
         """
         Wrapper to run an arbitrary shell command for convenience (e.g., grep, cp, rm).
         """
-        return self.run_subprocess(command, shell=True, check=False, exit_on_error=False, cwd=cwd, timneout=timeout)
+        return self.run_subprocess(command, shell=True, check=False, exit_on_error=False, cwd=cwd, timeout=timeout)
 
     def grep_output(self, pattern: str, file_path: str, flags: str = "") -> str:
         """
