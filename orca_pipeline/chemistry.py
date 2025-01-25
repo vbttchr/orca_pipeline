@@ -642,7 +642,7 @@ class Molecule:
                         (3/4)
 
                 self.freq_job(
-                    driver=driver, slurm_params=slurm_params, ts=False)
+                    driver=driver, slurm_params=slurm_params_freq, ts=False)
 
         trial += 1
         print(f"[SP] Trial {trial} ")
