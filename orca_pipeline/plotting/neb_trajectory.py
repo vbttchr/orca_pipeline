@@ -109,7 +109,6 @@ def plot_optimization(energies, images: int = 12, show: bool = True, save: bool 
         plt.show()
     if save:
         plt.savefig('neb_plot.png')
-# ...existing code...
 
 
 if __name__ == "__main__":
