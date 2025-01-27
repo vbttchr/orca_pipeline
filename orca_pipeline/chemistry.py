@@ -686,9 +686,7 @@ class Molecule:
         if trial > upper_limit:
             print("[CREST] Too many trials, aborting.")
             return False
-        if not cwd:
-            cwd = os.getcwd()
-        print(f"[CREST] Generating conformers for {self.name}")
+               print(f"[CREST] Generating conformers for {self.name}")
 
         print("CREST needs xtb2 optimized structures.")
 
@@ -705,7 +703,10 @@ class Molecule:
 
         print("Optimization done. Starting CREST")
         print("Copying optimized structure to CREST directory")
-        shutil.copy(f"{self.name}.xtbopt.xyz", cwd)
+        if cwd: 
+            shutil.copy(f"{self.name}.xtbopt.xyz", cwd)
+        else:
+            cwd=os.getcwd()
 
         job_id = driver.submit_job(input_file=f"{self.name}.xtbopt.xyz", walltime="120",
                                    output_file=f'{self.name}_slurm.out', charge=self.charge, mult=self.mult, solvent=self.solvent, job_type="crest", cwd=cwd)  # submit_job handles conversion from mult to uhf
