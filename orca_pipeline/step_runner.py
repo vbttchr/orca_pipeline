@@ -197,7 +197,9 @@ class StepRunner:
         self.state["charge"] = self.target.charge
         self.state["mult"] = self.target.mult
         self.state["solvent"] = self.target.solvent
-        self.state["Nimages"] = self.target.nimages
+        if isinstance(self.target, Reaction):
+
+            self.state["Nimages"] = self.target.nimages
 
     def pipeline(self, step: str) -> bool:
         """
