@@ -131,6 +131,13 @@ class StepRunner:
                                                                     solvent=self.target.product.solvent, method=self.target.product.method, sp_method=self.target.product.sp_method, name="product")
                         self.target.transition_state = Molecule.from_xyz(filepath="TS/ts_guess_TS_opt.xyz", charge=self.target.educt.charge,
                                                                          mult=self.target.educt.mult, solvent=self.target.educt.solvent, method=self.target.educt.method, sp_method=self.target.educt.sp_method, name="ts")
+                    elif isinstance(self.target, Molecule):
+                        if os.path.exists("OPT"):
+                            self.target = Molecule.from_xyz(filepath=f"OPT/{self.target.name}_opt.xyz", charge=self.target.charge, mult=self.target.mult,
+                                                            solvent=self.target.solvent, method=self.target.method, sp_method=self.target.sp_method, name=f"{self.target.name}")
+                        if os.path.exists("CONF"):
+                            self.target = Molecule.from_xyz(filepath=f"CONF/{self.target.name}_opt.xyz", charge=self.target.charge, mult=self.target.mult,
+                                                            solvent=self.target.solvent, method=self.target.method, sp_method=self.target.sp_method, name=f"{self.target.name}")
                 case "CONF":
                     if isinstance(self.target, Reaction):
                         if os.path.exists("TS"):
