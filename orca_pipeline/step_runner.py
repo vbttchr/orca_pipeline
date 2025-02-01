@@ -221,7 +221,8 @@ class StepRunner:
             "IRC": self.irc_job,
             "SP": self.sp_calc,
             "CONF": self.conf_calc,
-            "PLOT": self.plot
+            "PLOT": self.plot,
+            "FOD": self.fod_job
         }
 
         step_function: Callable[[], bool] = steps_mapping.get(step.upper())
@@ -469,6 +470,12 @@ class StepRunner:
         # TODO implement plotting for reaction objects
         print("Gathering energies for plot wil be saved to CSV in parent directory")
         return self.target.get_reaction_energies()
+
+    def fod_job(self) -> bool:
+        if isinstance(self.target, Molecule):
+            self.make_folder("FOD")
+            os.chdir("FOD")
+            return self.target.fod_calc(self.hpc_driver, self.slurm_params_low_mem)
 
     def handle_failed_neb(self,  uper_limit):
 

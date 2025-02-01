@@ -767,6 +767,85 @@ class Molecule:
             return False
 
 
+def get_reaction_energies(self) -> bool:
+    """
+    self.energies = pd.DataFrame(
+        columns=["step", "single_point_energy", "free_energy_correction" "inner_energy_correction","enthalpy_correction"  "entropy",  "temperature","method", "sp_method"])
+
+    #TODO add reaction name to step naming, to easier concat the csv. Currently probably not possible since reaction name is not perfect
+    """
+
+    driver = HPCDriver()
+    if os.path.exists(f"{self.name}_energies.csv"):
+        return pd.read_csv(f"{self.name}_energies.csv")
+
+    if not os.path.exists("SP"):
+        raise FileNotFoundError(
+            "SP folder not found. Run SP calculations first.")
+
+    steps = [f"{self.name}"]
+    sp_energies = []
+    free_energy_corrections = []
+    inner_energy_corrections = []
+    enthalpy_corrections = []
+    entropies = []
+    temperatures = []
+    methods = []
+    sp_methods = []
+    solvents = []
+
+    for step in [self.educt.name, self.transition_state.name, self.product.name]:
+        sp_file = f"SP/{step}_SP.out"
+        freq_file = f"SP/{step}_freq.out"
+        if not os.path.exists(sp_file) or not os.path.exists(freq_file):
+            raise FileNotFoundError(
+                f"SP file {sp_file} or FREQ file {freq_file} not found. Run SP calculations first.")
+        print("Chekcking if reactants are true minima and TS true saddle point")
+
+        imags = driver.grep_output(
+            "***imaginary mode***", freq_file).split("\n")
+        imags = [line for line in imags if line.strip() != ""]
+
+        if len(imags) > 0:
+            if step == self.transition_state.name and len(imags) == 1:
+                pass
+            else:
+                print(
+                    f"Step {step} is not a true minimum or saddle point. Check the frequency calculation and take the results with caution.")
+
+        sp_energies.append(float(driver.grep_output(
+            "FINAL SINGLE POINT ENERGY", sp_file).split(" ")[-1]))
+        # maybe it is super consistent and we can just count where it is. This is kinda fool proofed
+
+        tmp = driver.grep_output("G-E(el)", freq_file).split(" ")
+        index = tmp.index("Eh") - 1
+        free_energy_corrections.append(float(tmp[index]))
+
+        tmp = driver.grep_output("Total correction", freq_file).split(" ")
+        index = tmp.index("Eh") - 1
+        inner_energy_corrections.append(float(tmp[index]))
+
+        tmp = driver.grep_output(
+            "Thermal Enthalpy correction", freq_file).split(" ")
+        index = tmp.index("Eh") - 1
+        enthalpy_corrections.append(float(tmp[index]))
+
+        tmp = driver.grep_output(
+            "Final entropy term", freq_file).split(" ")
+        index = tmp.index("Eh") - 1
+        entropies.append(float(tmp[index]))
+        temperatures.append(float(driver.grep_output(
+            "Temperature", freq_file).split(" ")[-2]))
+        methods.append(self.educt.method)
+        sp_methods.append(self.educt.sp_method)
+        solvents.append(self.educt.solvent)
+
+    self.energies = pd.DataFrame(
+        {"step": steps, "single_point_energy": sp_energies, "free_energy_correction": free_energy_corrections, "inner_energy_correction": inner_energy_corrections, "enthalpy_correction": enthalpy_corrections, "entropy": entropies, "temperature": temperatures, "method": methods, "sp_method": sp_methods, "solvent": solvents})
+    self.energies.to_csv(f"{self.name}_energies.csv", index=False)
+    return True
+
+
 class Reaction:
     """
     Represents a elementary step in a reaction.
@@ -1077,6 +1156,22 @@ class Reaction:
             ]
         return all([result.result() for result in results])
 
+    def fod_calc(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = MAX_TRIALS) -> bool:
+        """
+        Does FOD with all reactants
+        """
+        results = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            results = [
+                executor.submit(self.educt.fod_calc, driver,
+                                slurm_params, trial, upper_limit),
+                executor.submit(self.product.fod_calc, driver,
+                                slurm_params, trial, upper_limit),
+                executor.submit(self.transition_state.fod_calc,
+                                driver, slurm_params, trial, upper_limit)
+            ]
+        return all([result.result() for result in results])
+
     def get_lowest_confomers(self, driver: HPCDriver, slurm_params: dict, trial: int = 0, upper_limit: int = MAX_TRIALS) -> bool:
         """
         Generates conformers for the educt and product.
@@ -1099,6 +1194,7 @@ class Reaction:
             columns=["step", "single_point_energy", "free_energy_correction" "inner_energy_correction","enthalpy_correction"  "entropy",  "temperature","method", "sp_method"])
 
         #TODO add reaction name to step naming, to easier concat the csv. Currently probably not possible since reaction name is not perfect
+        #TODO add ZPE energy seperately to have E_el + ZPE
         """
 
         driver = HPCDriver()
