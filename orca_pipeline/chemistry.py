@@ -758,7 +758,15 @@ class Molecule:
         status = driver.check_job_status(job_id, step="FOD")
 
         if status == 'COMPLETED' and "ORCA TERMINATED NORMALLY" in driver.grep_output("ORCA TERMINATED NORMALLY", input_name.split('.')[0] + '.out'):
+
             print("[FOD] FOD calculation completed successfully.")
+            print("Plotting Cube files")
+
+            with open("fod_plot.inp", "w") as f:
+                f.write(
+                    f"1\n 2\n n\n {self.name}.scfp_fod\n 4\n 100\n 5\n 7\n 11\n 12\n")
+            driver.shell_command(
+                f"orca_plot -i {input_name.split('.')[0]}.gbw' < fod_plot.inp")
 
             return True
         else:
