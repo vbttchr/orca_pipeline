@@ -89,6 +89,8 @@ class HPCDriver:
                            str(mail), "-c", str(charge), "-u", str(mult-1), "-s", str(solvent), "-o",  output_file, input_file]
             case "fod":
 
+                waltime = waltime+":00:00"
+
                 nprocs = 1
                 maxcore = 1000
                 orca_out = input_file.replace(".inp", ".out")
@@ -103,7 +105,7 @@ class HPCDriver:
                         if "maxcore" in line:
                             maxcore = int(line.split()[1])
                 command = [
-                    "sbatch", "-n", str(nprocs), "--mem-per-cpu", str(maxcore), f'--wrap={orca_path} {input_file} > {orca_out}']
+                    "sbatch", "-n", str(nprocs), "--mem-per-cpu", str(maxcore), f'--time={walltime}', f'--wrap = {orca_path} {input_file} > {orca_out}']
                 print(f"Submitting FOD job with command: {command}")
         result = self.run_subprocess(command, cwd=cwd, timeout=1200)
         if not result:
