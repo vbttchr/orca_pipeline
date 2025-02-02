@@ -94,6 +94,8 @@ class HPCDriver:
                 orca_out = input_file.replace(".inp", ".out")
 
                 orca_path = self.shell_command("which orca").stdout.strip()
+                print(f"Using ORCA path: {orca_path}")
+
                 with open(input_file, 'r') as f:
                     for line in f:
                         if "nprocs" in line:
@@ -102,7 +104,7 @@ class HPCDriver:
                             maxcore = int(line.split()[1])
                 command = [
                     "sbatch", "-n", str(nprocs), "--mem-per-cpu", str(maxcore), f'--wrap="{orca_path} {input_file} > {orca_out}"']
-
+                print(f"Submitting FOD job with command: {command}")
         result = self.run_subprocess(command, cwd=cwd)
         if not result:
             print(f"Failed to submit job with input '{input_file}'")
