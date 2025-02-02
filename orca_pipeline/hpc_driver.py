@@ -103,7 +103,7 @@ class HPCDriver:
                         if "maxcore" in line:
                             maxcore = int(line.split()[1])
                 command = [
-                    "sbatch", "-n", str(nprocs), "--mem-per-cpu", str(maxcore), f'--wrap="{orca_path} {input_file} > {orca_out}"']
+                    "sbatch", "-n", str(nprocs), "--mem-per-cpu", str(maxcore), f'--wrap={orca_path} {input_file} > {orca_out}']
                 print(f"Submitting FOD job with command: {command}")
         result = self.run_subprocess(command, cwd=cwd)
         if not result:
