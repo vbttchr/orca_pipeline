@@ -89,7 +89,7 @@ class HPCDriver:
                            str(mail), "-c", str(charge), "-u", str(mult-1), "-s", str(solvent), "-o",  output_file, input_file]
             case "fod":
 
-                waltime = waltime+":00:00"
+                walltime = walltime+":00:00"
 
                 nprocs = 1
                 maxcore = 1000
