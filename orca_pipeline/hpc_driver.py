@@ -105,7 +105,7 @@ class HPCDriver:
                 command = [
                     "sbatch", "-n", str(nprocs), "--mem-per-cpu", str(maxcore), f'--wrap={orca_path} {input_file} > {orca_out}']
                 print(f"Submitting FOD job with command: {command}")
-        result = self.run_subprocess(command, cwd=cwd)
+        result = self.run_subprocess(command, cwd=cwd, timeout=1200)
         if not result:
             print(f"Failed to submit job with input '{input_file}'")
             sys.exit(1)
