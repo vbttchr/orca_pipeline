@@ -119,7 +119,7 @@ class HPCDriver:
         print(f"Failed to get job_id for {input_file}")
         sys.exit(1)
 
-    def check_job_status(self, job_id: str, interval: int = 45, step: str = "", timeout: int = 60) -> str:
+    def check_job_status(self, job_id: str, interval: int = 45, step: str = "", timeout: int = 1200) -> str:
         """
         Checks the status of a SLURM job at regular intervals until 
         it's out of the queue or recognized as completed/failed.
@@ -158,7 +158,8 @@ class HPCDriver:
         """
         Cancels a running SLURM job by ID (no error if job is already stopped).
         """
-        self.run_subprocess(['scancel', job_id], exit_on_error=False)
+        self.run_subprocess(['scancel', job_id],
+                            exit_on_error=False, timeout=1200)
 
     def shell_command(self, command: str, cwd=None, timeout: int = 60) -> Optional[subprocess.CompletedProcess]:
         """
@@ -171,7 +172,7 @@ class HPCDriver:
         Wrapper around grep to return matched lines as a string.
         """
         command = f"grep {flags} '{pattern}' {file_path} "
-        result = self.shell_command(command)
+        result = self.shell_command(command, timeout=1200)
         if result and result.stdout:
             return result.stdout.strip()
         return ""
