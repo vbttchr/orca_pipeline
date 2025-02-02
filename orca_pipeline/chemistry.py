@@ -744,8 +744,8 @@ class Molecule:
 
         input_name = f"{self.name}_FOD.inp"
         fod_input = (f"!FOD\n"
-                     f"pal nprocs {slurm_params['nprocs']} end\n"
-                     f"maxcore {slurm_params['maxcore']}\n"
+                     f"%pal nprocs {slurm_params['nprocs']} end\n"
+                     f"%maxcore {slurm_params['maxcore']}\n"
                      f"*xyz {self.charge} {self.mult} \n"
                      f"{self.get_xyz_block()}*")
 
