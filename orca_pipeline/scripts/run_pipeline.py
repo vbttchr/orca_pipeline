@@ -84,6 +84,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run the ORCA pipeline.")
     parser.add_argument('config', type=str, nargs='?', default=None,
                         help='Path to the YAML configuration file.')
+    if not args.config:
+        print("Error: No configuration file provided.")
+        parser.print_help()
+        sys.exit(1)
     args = parser.parse_args()
 
     config = parse_yaml(args.config)
