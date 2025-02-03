@@ -15,6 +15,9 @@ from orca_pipeline.constants import MAX_TRIALS, RETRY_DELAY, SLURM_PARAMS_BIG_HI
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
+# TODO Restart/ Methods should check if a folder exists, if some steps are full filled
+# TODO Abortion due to other events than job failuer, slurm, my mistake etc.
+
 
 class StepRunner:
     # TODO make naming scheme of file names better.

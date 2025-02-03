@@ -764,7 +764,7 @@ class Molecule:
 
             with open("fod_plot.inp", "w") as f:
                 f.write(
-                    f"1\n 2\n n\n {self.name}.scfp_fod\n 4\n 100\n 5\n 7\n 11\n 12\n")
+                    f"1\n 2\n n\n {input_name.split('.')[0]}.scfp_fod\n 4\n 100\n 5\n 7\n 11\n 12\n")
             result = driver.shell_command(
                 f"orca_plot -i {input_name.split('.')[0]}.gbw' < fod_plot.inp")
             if not result:
