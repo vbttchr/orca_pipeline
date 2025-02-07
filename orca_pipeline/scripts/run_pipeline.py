@@ -8,7 +8,7 @@ pipeline using HPCDriver, StepRunner, and PipelineManager.
 maybe associate the methods of step_runner to Reaction and Molecule classes.
 
 """
-
+# TODO make parsing case insensitive
 import argparse
 import os
 from typing import List
@@ -71,6 +71,7 @@ def str2bool(v: str) -> bool:
 def parse_steps(steps_str: str) -> List[str]:
     """
     Parses comma-separated steps into a list.
+
     """
     if isinstance(steps_str, list):
         return steps_str

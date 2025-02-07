@@ -121,7 +121,7 @@ class Molecule:
         if mult < 1:
             raise ValueError("Multiplicity must be at least 1.")
 
-    @ classmethod
+    @classmethod
     def from_xyz(cls, filepath: str, charge: int, mult: int, solvent: str = None, name: str = None, method: str = "r2scan-3c", sp_method="r2scanh def2-qzvpp d4") -> 'Molecule':
         """
         Creates a Molecule instance from an XYZ file.
@@ -766,7 +766,7 @@ class Molecule:
                 f.write(
                     f"1\n 2\n n\n {input_name.split('.')[0]}.scfp_fod\n 4\n 100\n 5\n 7\n 11\n 12\n")
             result = driver.shell_command(
-                f"orca_plot -i {input_name.split('.')[0]}.gbw' < fod_plot.inp")
+                f"orca_plot  {input_name.split('.')[0]}.gbw' -i < fod_plot.inp")
             if not result:
                 print("orca_plot failed")
 
@@ -907,7 +907,7 @@ class Reaction:
         product_strs = " + ".join(self.product)
         return f"{reactant_strs} => {product_strs}"
 
-    @ classmethod
+    @classmethod
     def from_xyz(cls, educt_filepath: str, product_filepath: str, transition_state_filepath: str = None, nimages: int = 16, method: str = "r2scan-3c", charge: int = 0, mult: int = 1, solvent: str = None, sp_method: str = "r2scanh def2-qzvpp d4", name: str = "reaction", fast: bool = False, zoom: bool = False, energy_file: str = None) -> 'Reaction':
         """
         Creates an Reaction instance from XYZ files.
