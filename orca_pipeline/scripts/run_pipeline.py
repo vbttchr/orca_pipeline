@@ -9,6 +9,8 @@ maybe associate the methods of step_runner to Reaction and Molecule classes.
 
 """
 # TODO make parsing case insensitive
+# TODO remove state file if input does not match steps in state file. probably better in steprunner
+
 import argparse
 import os
 from typing import List
