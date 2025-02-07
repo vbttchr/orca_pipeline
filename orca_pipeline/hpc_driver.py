@@ -96,7 +96,6 @@ class HPCDriver:
                 orca_out = input_file.replace(".inp", ".out")
 
                 orca_path = self.shell_command("which orca").stdout.strip()
-                print(f"Using ORCA path: {orca_path}")
 
                 with open(input_file, 'r') as f:
                     for line in f:
