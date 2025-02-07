@@ -766,7 +766,7 @@ class Molecule:
                 f.write(
                     f" 1\n 2\n n\n {input_name.split('.')[0]}.scfp_fod\n 4\n 100\n 5\n 7\n 11\n 12\n")
             result = driver.shell_command(
-                f"orca_plot  {input_name.split('.')[0]}.gbw -i < {self.name}_fod_plot.inp")
+                f"orca_plot  {input_name.split('.')[0]}.gbw -i < {self.name}_fod_plot.inp", timeout=3600)
             if not result:
                 print("orca_plot failed")
             print(result)
