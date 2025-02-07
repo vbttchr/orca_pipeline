@@ -769,7 +769,7 @@ class Molecule:
                 f"orca_plot  {input_name.split('.')[0]}.gbw' -i < {self.name}_fod_plot.inp")
             if not result:
                 print("orca_plot failed")
-
+            print(result)
             return True
         else:
             # TODO think about restart if we want it here
