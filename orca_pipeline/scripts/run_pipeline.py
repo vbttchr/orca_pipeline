@@ -114,7 +114,7 @@ def main() -> None:
     required_keys = ['charge', 'mult', 'method',
                      'coords', 'name', 'steps', "slurm_params_low_mem", "slurm_params_high_mem"]
     for key in required_keys:
-        if not config.get(key):
+        if config.get(key) is None:
             print(
                 f"Error: Missing required key '{key}' in configuration file.")
             sys.exit(1)
