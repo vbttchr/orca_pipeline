@@ -96,21 +96,28 @@ def main() -> None:
 
     config = parse_yaml(args.config)
 
-    charge = config.get('charge', 0)
-    mult = config.get('mult', 1)
-    method = config.get('method', 'r2scan-3c')
-    coords = config.get('coords', ["educt.xyz", "product.xyz"])
-    solvent = config.get('solvent', None)
-    Nimages = config.get('Nimages', 8)
-    fast = config.get('fast', True)
-    zoom = config.get('zoom', False)
-    sp_method = config.get('sp_method', 'r2scanh def2-qzvpp d4')
-    name = config.get('name', None)
-    steps = parse_steps(config.get('steps', DEFAULT_STEPS))
+    charge = config.get('charge')
+    mult = config.get('mult')
+    method = config.get('method')
+    coords = config.get('coords')
+    solvent = config.get('solvent')
+    Nimages = config.get('Nimages')
+    fast = config.get('fast')
+    zoom = config.get('zoom')
+    sp_method = config.get('sp_method')
+    name = config.get('name')
+    steps = parse_steps(config.get('steps'))
     slurm_params_low_mem = config.get(
-        'slurm_params_low_mem', SLURM_PARAMS_BIG_LOW_MEM)
-    slurm_params_high_mem = config.get("slurm_params_high_mem",
-                                       SLURM_PARAMS_BIG_HIGH_MEM)
+        'slurm_params_low_mem')
+    slurm_params_high_mem = config.get("slurm_params_high_mem")
+
+    required_keys = ['charge', 'mult', 'method',
+                     'coords', 'name', 'steps', "slurm_params_low_mem", "slurm_params_high_mem"]
+    for key in required_keys:
+        if not config.get(key):
+            print(
+                f"Error: Missing required key '{key}' in configuration file.")
+            sys.exit(1)
 
     print("Starting Pipeline with parameters:")
     print(config)
