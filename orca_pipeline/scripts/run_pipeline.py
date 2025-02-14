@@ -144,7 +144,7 @@ def main() -> None:
     elif len(coords) == 3:
         name = "Reaction" if not name else name
         reaction = Reaction.from_xyz(
-            educt_filepath=coords[0], product_filepath=coords[1], transition_state_filepath=coords[2], nimages=Nimages, method=method, charge=charge, mult=mult, solvent=solvent, name=name, fast=fast, zoom=zoom)  # Reaction  # Reaction
+            educt_filepath=coords[0], product_filepath=coords[1], transition_state_filepath=coords[2], nimages=Nimages, method=method, charge=charge, mult=mult, solvent=solvent,sp_method=sp_method, name=name, fast=fast, zoom=zoom)  # Reaction  # Reaction
     else:
         print("Error: Invalid number of coordinate files provided.")
         return
