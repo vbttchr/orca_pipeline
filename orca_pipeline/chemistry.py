@@ -854,7 +854,8 @@ class Molecule:
         ):
             print("[GOAT] GOAT calculation completed successfully.")
 
-            self.update_coords_from_xyz(f"{input_name.split('.')}[0].globalminimum.xyz")
+            self.update_coords_from_xyz(input_name.split(".")[0] + ".globalminimum.xyz")
+
             return True
         else:
             print("GOAT failed chekc output")
