@@ -2,7 +2,7 @@
 """
 hpc_driver.py
 
-Contains the HPCDriver class, encapsulating SLURM-related operations like 
+Contains the HPCDriver class, encapsulating SLURM-related operations like
 submitting jobs, checking job status, cancelling jobs, etc.
 """
 
@@ -20,22 +20,26 @@ class HPCDriver:
     checking job status, cancelling jobs, etc.
     """
 
-    def __init__(self,
-                 submit_cmd: List[str] = None,
-                 check_states: List[str] = None,
-                 retry_delay: int = 60) -> None:
+    def __init__(
+        self,
+        submit_cmd: List[str] = None,
+        check_states: List[str] = None,
+        retry_delay: int = 60,
+    ) -> None:
         self.submit_cmd = submit_cmd or SSUBO
         self.check_states = check_states or CHECK_STATES
         self.retry_delay = retry_delay
 
-    def run_subprocess(self,
-                       command,
-                       shell: bool = False,
-                       capture_output: bool = True,
-                       check: bool = True,
-                       exit_on_error: bool = True,
-                       timeout: int = 60,
-                       cwd=None) -> Optional[subprocess.CompletedProcess]:
+    def run_subprocess(
+        self,
+        command,
+        shell: bool = False,
+        capture_output: bool = True,
+        check: bool = True,
+        exit_on_error: bool = True,
+        timeout: int = 60,
+        cwd=None,
+    ) -> Optional[subprocess.CompletedProcess]:
         """
         Wrapper for running a subprocess command.
         Returns CompletedProcess or None if it fails silently (exit_on_error=False).
@@ -51,7 +55,7 @@ class HPCDriver:
                 text=True,
                 check=check,
                 timeout=timeout,
-                cwd=cwd
+                cwd=cwd,
             )
             return result
         except subprocess.TimeoutExpired:
@@ -64,17 +68,29 @@ class HPCDriver:
             else:
                 return None
 
-    def submit_job(self, input_file: str, output_file: str, walltime: str = "24", mail: bool = False, job_type: str = "orca", version: int = 601, charge: int = 0, mult: int = 0, solvent: str = "", cwd=None) -> str:
+    def submit_job(
+        self,
+        input_file: str,
+        output_file: str,
+        walltime: str = "24",
+        mail: bool = False,
+        job_type: str = "orca",
+        version: int = 601,
+        charge: int = 0,
+        mult: int = 0,
+        solvent: str = "",
+        cwd=None,
+    ) -> str:
         """
-        Submits a job to SLURM using the configured submit command.
-        Parses and returns the job ID from stdout.
+         Submits a job to SLURM using the configured submit command.
+         Parses and returns the job ID from stdout.
 
-       version = 601
-       only freq can take other version as we currently need it for the qrc option. In the furture, this will either be more flexible or removed. Most recent orca version is preferable 
+        version = 601
+        only freq can take other version as we currently need it for the qrc option. In the furture, this will either be more flexible or removed. Most recent orca version is preferable
 
-       charge and mult are only used for crest jobs.
+        charge and mult are only used for crest jobs.
 
-        TODO: either change ssub scripts to always take same options or make this more flexibel
+         TODO: either change ssub scripts to always take same options or make this more flexibel
         """
 
         if not cwd:
@@ -82,14 +98,37 @@ class HPCDriver:
         command = []
         match job_type.lower():
             case "orca":
-                command = ["ssubo", "-v", str(version), "-w", walltime, "-m",
-                           str(mail), "-o", output_file, input_file]
+                command = [
+                    "ssubo",
+                    "-v",
+                    str(version),
+                    "-w",
+                    walltime,
+                    "-m",
+                    str(mail),
+                    "-o",
+                    output_file,
+                    input_file,
+                ]
             case "crest":
-                command = ["ssubcrest", "-w", walltime, "-m",
-                           str(mail), "-c", str(charge), "-u", str(mult-1), "-s", str(solvent), "-o",  output_file, input_file]
+                command = [
+                    "ssubcrest",
+                    "-w",
+                    walltime,
+                    "-m",
+                    str(mail),
+                    "-c",
+                    str(charge),
+                    "-u",
+                    str(mult - 1),
+                    "-s",
+                    str(solvent),
+                    "-o",
+                    output_file,
+                    input_file,
+                ]
             case "fod":
-
-                walltime = walltime+":00:00"
+                walltime = walltime + ":00:00"
 
                 nprocs = 1
                 maxcore = 1000
@@ -97,14 +136,21 @@ class HPCDriver:
 
                 orca_path = self.shell_command("which orca").stdout.strip()
 
-                with open(input_file, 'r') as f:
+                with open(input_file, "r") as f:
                     for line in f:
                         if "nprocs" in line:
                             nprocs = int(line.split()[2])
                         if "maxcore" in line:
                             maxcore = int(line.split()[1])
                 command = [
-                    "sbatch", "-n", str(nprocs), "--mem-per-cpu", str(maxcore), f"--time={walltime}", f"--wrap={orca_path} {input_file} > {orca_out}"]
+                    "sbatch",
+                    "-n",
+                    str(nprocs),
+                    "--mem-per-cpu",
+                    str(maxcore),
+                    f"--time={walltime}",
+                    f"--wrap={orca_path} {input_file} > {orca_out}",
+                ]
                 print(f"Submitting FOD job with command: {command}")
         result = self.run_subprocess(command, cwd=cwd, timeout=1200)
         if not result:
@@ -112,7 +158,7 @@ class HPCDriver:
             sys.exit(1)
 
         for line in result.stdout.splitlines():
-            if 'Submitted batch job' in line:
+            if "Submitted batch job" in line:
                 job_id = line.split()[-1]
                 print(f"Job submitted with ID: {job_id}")
                 return job_id
@@ -120,53 +166,69 @@ class HPCDriver:
         print(f"Failed to get job_id for {input_file}")
         sys.exit(1)
 
-    def check_job_status(self, job_id: str, interval: int = 45, step: str = "", timeout: int = 1200) -> str:
+    def check_job_status(
+        self, job_id: str, interval: int = 45, step: str = "", timeout: int = 1200
+    ) -> str:
         """
-        Checks the status of a SLURM job at regular intervals until 
+        Checks the status of a SLURM job at regular intervals until
         it's out of the queue or recognized as completed/failed.
         """
         counter = 0
         while True:
             time.sleep(interval)
-            print(f'Checking job {job_id} status {step}')
-            squeue = self.run_subprocess(['squeue', '-j', job_id, '-h'],
-                                         shell=False, exit_on_error=False,
-                                         timeout=timeout)
+            print(f"Checking job {job_id} status {step}")
+            squeue = self.run_subprocess(
+                ["squeue", "-j", job_id, "-h"],
+                shell=False,
+                exit_on_error=False,
+                timeout=timeout,
+            )
             if squeue and squeue.stdout.strip():
                 if counter % 10 == 0:
-                    print(f'Job {job_id} is still in the queue.')
+                    print(f"Job {job_id} is still in the queue.")
                 counter += 1
             else:
-                sacct = self.run_subprocess(['sacct', '-j', job_id, '--format=State', '--noheader'],
-                                            shell=False, exit_on_error=False, timeout=timeout)
+                sacct = self.run_subprocess(
+                    ["sacct", "-j", job_id, "--format=State", "--noheader"],
+                    shell=False,
+                    exit_on_error=False,
+                    timeout=timeout,
+                )
                 if sacct and sacct.stdout.strip():
-                    statuses = sacct.stdout.strip().split('\n')
+                    statuses = sacct.stdout.strip().split("\n")
                     latest_status = statuses[-1].strip()
-                    print(f'Latest status for job {job_id}: {latest_status}')
+                    print(f"Latest status for job {job_id}: {latest_status}")
                     if latest_status in self.check_states:
                         return latest_status
                     else:
-                        print(
-                            f'Job {job_id} ended with status: {latest_status}')
+                        print(f"Job {job_id} ended with status: {latest_status}")
                         return latest_status
                 else:
                     if sacct and sacct.stderr.strip():
                         print(f"Error from sacct: {sacct.stderr.strip()}")
-                    print(f'Job {job_id} status could not be determined.')
-                    return 'UNKNOWN'
+                    print(f"Job {job_id} status could not be determined.")
+                    return "UNKNOWN"
 
     def scancel_job(self, job_id: str) -> None:
         """
         Cancels a running SLURM job by ID (no error if job is already stopped).
         """
-        self.run_subprocess(['scancel', job_id],
-                            exit_on_error=False, timeout=1200)
+        self.run_subprocess(["scancel", job_id], exit_on_error=False, timeout=1200)
 
-    def shell_command(self, command: str, cwd=None, timeout: int = 60) -> Optional[subprocess.CompletedProcess]:
+    def shell_command(
+        self, command: str, cwd=None, timeout: int = 60
+    ) -> Optional[subprocess.CompletedProcess]:
         """
         Wrapper to run an arbitrary shell command for convenience (e.g., grep, cp, rm).
         """
-        return self.run_subprocess(command, shell=True, check=False, exit_on_error=False, cwd=cwd, timeout=timeout)
+        return self.run_subprocess(
+            command,
+            shell=True,
+            check=False,
+            exit_on_error=False,
+            cwd=cwd,
+            timeout=timeout,
+        )
 
     def grep_output(self, pattern: str, file_path: str, flags: str = "") -> str:
         """
