@@ -1419,7 +1419,7 @@ class Reaction:
             self.educt.to_xyz("educt.xyz")
             self.product.to_xyz("product.xyz")
 
-        geom_block = "%geom\n Calc_Hess true\n Recalc_Hess 15\n"
+        geom_block = "%geom\n Calc_Hess true\n Recalc_Hess 15 end\n"
         nprocs = (
             slurm_params["nprocs"]
             if 4 * self.nimages < slurm_params["nprocs"]
