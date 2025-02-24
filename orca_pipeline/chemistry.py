@@ -850,7 +850,7 @@ class Molecule:
         status = driver.check_job_status(job_id, step="GOAT")
 
         if status == "COMPLETED" and "ORCA TERMINATED NORMALLY" in driver.grep_output(
-            "ORCA terminated normally", input_name.split(".")[0] + ".out"
+            "ORCA TERMINATED NORMALLY", input_name.split(".")[0] + ".out"
         ):
             print("[GOAT] GOAT calculation completed successfully.")
 
