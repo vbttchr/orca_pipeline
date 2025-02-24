@@ -694,7 +694,7 @@ class StepRunner:
                     self.hpc_driver, self.slurm_params_low_mem, crest=True
                 )
             else:
-                sucess = self.target.get_lowest_confomers(
+                success = self.target.get_lowest_confomers(
                     self.hpc_driver, self.slurm_params_low_mem, crest=False
                 )
             if success:
