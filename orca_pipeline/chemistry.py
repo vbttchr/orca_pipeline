@@ -114,7 +114,7 @@ class Molecule:
         solvent: str = None,
         method: str = "r2scan-3c",
         sp_method: str = "r2scanh def2-qzvpp d4",
-        conf_method="CREST"
+        conf_method="CREST",
     ) -> None:
         self.name = name
         self.atoms = atoms
@@ -145,7 +145,7 @@ class Molecule:
         name: str = None,
         method: str = "r2scan-3c",
         sp_method="r2scanh def2-qzvpp d4",
-        conf_method="CREST"
+        conf_method="CREST",
     ) -> "Molecule":
         """
         Creates a Molecule instance from an XYZ file.
@@ -162,7 +162,7 @@ class Molecule:
             solvent=solvent,
             method=method,
             sp_method=sp_method,
-            conf_method=conf_method 
+            conf_method=conf_method,
         )
 
     def __str__(self) -> str:
@@ -820,27 +820,27 @@ class Molecule:
             trial=trial,
             upper_limit=upper_limit,
         )
+
     def get_lowest_confomer_goat(
         self,
         driver: HPCDriver,
         slurm_params: dict,
         cwd=None,
-    )->bool:
-
-
-        print(f"Finding confomers for {self.name} with GOAT")
+    ) -> bool:
+        print(
+            f"Finding confomers for {self.name} with GOAT. XTB2 is used as method as dft metods are to exepnsive "
+        )
         solvent_formatted = f"ALPB({self.solvent})" if self.solvent else ""
-            
 
         self.to_xyz(f"{self.name}_before_goat.xyz")
 
-        goat_input =(
+        goat_input = (
             f"!XTB2 {solvent_formatted} GOAT \n"
             f"%pal nprocs {slurm_params['nprocs']} end\n"
             f"%maxcore {slurm_params['maxcore']}\n"
             f"*xyz {self.charge} {self.mult} \n"
             f"{self.get_xyz_block()}*"
-        ) 
+        )
 
         input_name = f"{self.name}_goat.inp"
         with open(input_name, "w") as f:
@@ -861,22 +861,6 @@ class Molecule:
             print(status)
             return False
 
-
-
-            
-
-
-
-        return False
-
-
-
-
-
-
-
-
-    )
     def get_lowest_confomer_crest(
         self,
         driver: HPCDriver,
@@ -1118,7 +1102,7 @@ class Reaction:
         fast: bool = False,
         zoom: bool = False,
         energies_path: str = None,
-        conf_method="CREST"
+        conf_method="CREST",
     ) -> None:
         self.educt = educt
         self.product = product
@@ -1132,7 +1116,7 @@ class Reaction:
         self.zoom = zoom
         self.charge = educt.charge
         self.mult = educt.mult
-        self.conf_method=conf_method
+        self.conf_method = conf_method
         self.energies = pd.DataFrame(
             columns=[
                 "step",
@@ -1191,7 +1175,7 @@ class Reaction:
         fast: bool = False,
         zoom: bool = False,
         energy_file: str = None,
-        conf_method:str="CREST"
+        conf_method: str = "CREST",
     ) -> "Reaction":
         """
         Creates an Reaction instance from XYZ files.
@@ -1204,7 +1188,7 @@ class Reaction:
             method=method,
             sp_method=sp_method,
             name="educt",
-            conf_method=conf_method
+            conf_method=conf_method,
         )
         product = Molecule.from_xyz(
             product_filepath,
@@ -1214,7 +1198,7 @@ class Reaction:
             method=method,
             sp_method=sp_method,
             name="product",
-            conf_method=conf_method
+            conf_method=conf_method,
         )
         transition_state = (
             Molecule.from_xyz(
@@ -1241,7 +1225,7 @@ class Reaction:
             fast=fast,
             zoom=zoom,
             energies_path=energy_file,
-            conf_method=conf_method
+            conf_method=conf_method,
         )
 
     def optimise_reactants(
