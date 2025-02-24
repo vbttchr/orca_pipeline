@@ -73,7 +73,7 @@ def rmsd(mol1, mol2) -> float:
     Calculates the RMSD between two molecules.
 
     """
-    if type(mol1) != type(mol2):
+    if type(mol1) is not type(mol2):
         raise ValueError("Both arguments must be of the same type.")
 
     if isinstance(mol1, Molecule):
@@ -183,11 +183,11 @@ class Molecule:
         """
         self.coords = np.dot(rotation_matrix, self.coords)
 
-    def to_xyz(self, filepath: str = None) -> None:
+    def to_xyz(self, filepath: str = "") -> None:
         """
         Writes the molecule to an XYZ file.
         """
-        if filepath is None:
+        if filepath == "":
             current_dir = os.getcwd()
             filepath = os.path.join(current_dir, f"{self.name}.xyz")
 
@@ -854,7 +854,7 @@ class Molecule:
         ):
             print("[GOAT] GOAT calculation completed successfully.")
 
-            self.update_coords_from_xyz(f"input_name.split('.')[0].globalminimum.xyz")
+            self.update_coords_from_xyz(f"{input_name.split('.')}[0].globalminimum.xyz")
             return True
         else:
             print("GOAT failed chekc output")
@@ -941,10 +941,10 @@ class Molecule:
             return False
         print(f"[FOD] Generating FOD for {self.name}")
         print(
-            f"ORCA needs to be excuted in same dir, else density plots are not possible"
+            "ORCA needs to be excuted in same dir, else density plots are not possible"
         )
         print(
-            f"FOD is currently conducted with default settings -> TPSS def2-TZVP at 5000K"
+            "FOD is currently conducted with default settings -> TPSS def2-TZVP at 5000K"
         )
 
         input_name = f"{self.name}_FOD.inp"
@@ -999,7 +999,8 @@ def get_reaction_energies(self) -> bool:
 
     driver = HPCDriver()
     if os.path.exists(f"{self.name}_energies.csv"):
-        return pd.read_csv(f"{self.name}_energies.csv")
+        print(f"{self.name}_energies.csv exist")
+        return True
 
     if not os.path.exists("SP"):
         raise FileNotFoundError("SP folder not found. Run SP calculations first.")
@@ -1150,11 +1151,6 @@ class Reaction:
         return f"{reactant_strs} => {product_strs}"
 
     def __repr__(self) -> str:
-        reactant_strs = f"{self.educt}\n"
-        product_strs = f"{self.product}\n"
-        return f"{reactant_strs} => {product_strs}"
-
-    def __repr__(self) -> str:
         reactant_strs = " + ".join(f"{self.educt}")
         product_strs = " + ".join(self.product)
         return f"{reactant_strs} => {product_strs}"
@@ -1294,7 +1290,7 @@ class Reaction:
         neb_method = "NEB-CI" if not self.zoom else "ZOOM-NEB-CI"
         nprocs = ""
         maxcore = slurm_params["maxcore"]
-        if not "xtb" in self.method.lower():
+        if "xtb" not in self.method.lower():
             nprocs = (
                 slurm_params["nprocs"]
                 if 4 * self.nimages < slurm_params["nprocs"]
@@ -1372,7 +1368,7 @@ class Reaction:
                     "rm -rf *.gbw pmix* *densities* freq.inp slurm* *neb*.inp"
                 )
                 self.nimages += 4
-                return self.neb_ci(trial, upper_limit)
+                return self.neb_ci(driver, slurm_params, trial, upper_limit)
         else:
             print("[NEB_CI] Job failed or did not converge. Retrying...")
             driver.scancel_job(job_id)
@@ -1415,7 +1411,7 @@ class Reaction:
         )
         if trial > upper_limit:
             print("[NEB_TS] Too many trials aborting.")
-            return False
+            return "failed", False
 
         # On first NEB trial, create NEB folder if not existing
         if trial == 1:
@@ -1654,6 +1650,17 @@ class Reaction:
                 )
         else:
             print("Searching for lowest confomers using GOAT")
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                results.append(
+                    executor.submit(
+                        self.educt.get_lowest_confomer_goat, driver, slurm_params
+                    )
+                )
+                results.append(
+                    executor.submit(
+                        self.product.get_lowest_confomer_goat, driver, slurm_params
+                    )
+                )
 
         return all([result.result() for result in results])
 
@@ -1668,7 +1675,8 @@ class Reaction:
 
         driver = HPCDriver()
         if os.path.exists(f"{self.name}_energies.csv"):
-            return pd.read_csv(f"{self.name}_energies.csv")
+            print("Energies already calculated")
+            return True
 
         if not os.path.exists("SP"):
             raise FileNotFoundError("SP folder not found. Run SP calculations first.")
