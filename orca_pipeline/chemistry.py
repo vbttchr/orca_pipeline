@@ -25,6 +25,7 @@ from orca_pipeline.hpc_driver import HPCDriver
 # TODO add something to reaction to do stuff with seperated reactants.
 # TODO  add correction to G if we go from 2 to 1 species etc.
 # Do we need to do micokinetic modeling to get concentraitions?
+# Add NBO stuff
 
 ### ---UTILS----###
 
@@ -1420,11 +1421,7 @@ class Reaction:
             self.product.to_xyz("product.xyz")
 
         geom_block = "%geom\n Calc_Hess true\n Recalc_Hess 15 end\n"
-        nprocs = (
-            slurm_params["nprocs"]
-            if 4 * self.nimages < slurm_params["nprocs"]
-            else 4 * self.nimages
-        )
+        nprocs = slurm_params["nprocs"]
         maxcore = slurm_params["maxcore"]
 
         if "xtb" in self.method.lower():
@@ -1452,7 +1449,7 @@ class Reaction:
         neb_input = (
             f"! {self.method} {neb_block} {solvent_formatted} tightscf \n"
             f"{geom_block}"
-            f"%pal nprocs {nprocs} end\n"
+            f"%pal nprocs {nprocs}  end\n"
             f"%maxcore {maxcore}\n"
             f'%neb\n   Product "product.xyz"\n   NImages {self.nimages}\n  end\n'
             f"*xyzfile {self.charge} {self.mult} educt.xyz\n"
@@ -1489,12 +1486,8 @@ class Reaction:
                     method=self.method,
                     sp_method=self.sp_method,
                 )
-                slurm_params_freq = slurm_params.copy()
-                slurm_params_freq["maxcore"] = (
-                    maxcore if "xtb" in self.method.lower() else maxcore * 4
-                )
                 freq_success = potential_ts.freq_job(
-                    driver=driver, slurm_params=slurm_params_freq, ts=True
+                    driver=driver, slurm_params=slurm_params, ts=True
                 )
                 if freq_success:
                     # Copy the final TS structure to a known file

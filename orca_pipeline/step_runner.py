@@ -479,7 +479,7 @@ class StepRunner:
 
             message, success = self.target.neb_ts(
                 self.hpc_driver,
-                self.slurm_params_low_mem,
+                self.slurm_params_high_mem,
                 trial=0,
                 upper_limit=MAX_TRIALS,
             )

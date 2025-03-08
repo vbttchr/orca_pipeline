@@ -4,3 +4,7 @@
 check again if cpcm freq and stuff is okish or if I need to do it via gasphase
 
 Make input case insensitive
+
+iterative optimization after GOAT, 
+
+Check if I can figure out what the parameters for neb_ts for the CI step. Make CI from neb_Ts but then start TS_opt with this guess that we can include hess information 
