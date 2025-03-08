@@ -1529,17 +1529,14 @@ class Reaction:
 
             return "failed", False
         # already changed dir
-        print("There was an error during the run, Restart with the same settings")
+        print(
+            "There was an error during the run or it was aborted, Restart like it was not converged"
+        )
         driver.scancel_job(job_id)
         time.sleep(RETRY_DELAY)
         driver.shell_command("rm -rf *.gbw pmix* *densities* freq.inp slurm* *neb*.inp")
 
-        return self.neb_ts(
-            driver=driver,
-            slurm_params=slurm_params,
-            trial=trial,
-            upper_limit=upper_limit,
-        )
+        return "failed", False
 
     def sp_calc(
         self,
