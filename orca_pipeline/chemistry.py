@@ -24,8 +24,9 @@ from orca_pipeline.hpc_driver import HPCDriver
 # TODO Add option to caluclate solvation energy with cosmors
 # TODO add something to reaction to do stuff with seperated reactants.
 # TODO  add correction to G if we go from 2 to 1 species etc.
-# Do we need to do micokinetic modeling to get concentraitions?
-# Add NBO stuff
+# TODO Do we need to do micokinetic modeling to get concentraitions?
+# TODO Add NBO stuff
+# TODO make function which handles the copying of failed calulc
 
 ### ---UTILS----###
 
@@ -1504,6 +1505,13 @@ class Reaction:
                         neb_input_name.split(".")[0] + ".out",
                         f"Failed_calculations/{neb_input_name.split('.')[0]}_failed_on_trial_{trial}.out",
                     )
+                    if os.path.exists(
+                        neb_input_name.split(".")[0] + "_NEB-CI_converged.xyz"
+                    ):
+                        shutil.move(
+                            neb_input_name.split(".")[0] + "_NEB-CI_converged.xyz",
+                            "Failed_calculations",
+                        )
 
                     driver.shell_command(
                         "rm -rf *.gbw pmix* *densities* freq.inp slurm* *neb*.inp"
@@ -1522,6 +1530,15 @@ class Reaction:
             print("Restart neb with more precise settings, use ")
             driver.scancel_job(job_id)
 
+            if not os.path.exists("Failed_calculations"):
+                os.mkdir("Failed_calculations")
+            shutil.move(neb_input_name.split(".")[0] + ".out", "Failed_calculations")
+            if os.path.exists(neb_input_name.split(".")[0] + "_NEB-CI_converged.xyz"):
+                shutil.move(
+                    neb_input_name.split(".")[0] + "_NEB-CI_converged.xyz",
+                    "Failed_calculations",
+                )
+
             # If needed, remove partial files or rename them
             driver.shell_command(
                 "rm -rf *.gbw pmix* *densities* *freq.inp slurm* *neb*.inp"
@@ -1534,6 +1551,14 @@ class Reaction:
         )
         driver.scancel_job(job_id)
         time.sleep(RETRY_DELAY)
+        if not os.path.exists("Failed_calculations"):
+            os.mkdir("Failed_calculations")
+        shutil.move(neb_input_name.split(".")[0] + ".out", "Failed_calculations")
+        if os.path.exists(neb_input_name.split(".")[0] + "_NEB-CI_converged.xyz"):
+            shutil.move(
+                neb_input_name.split(".")[0] + "_NEB-CI_converged.xyz",
+                "Failed_calculations",
+            )
         driver.shell_command("rm -rf *.gbw pmix* *densities* freq.inp slurm* *neb*.inp")
 
         return "failed", False
