@@ -498,7 +498,7 @@ class Molecule:
             input_name.split(".")[0] + ".out",
             f"Failed_calculations/{input_name.split('.')[0]}_failed_on_trial_{trial}.out",
         )
-        driver.shell_command("rm -rf *.gbw pmix* *densities*  slurm* *.hess")
+        driver.shell_command("rm -rf *.gbw pmix* *densities*  slurm* ")
         if os.path.exists(f"{input_name}.split('.')[0].xyz"):
             self.update_coords_from_xyz(f"{input_name.split('.')[0]}.xyz")
 
