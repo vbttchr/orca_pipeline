@@ -114,6 +114,7 @@ class Molecule:
         mult: int,
         charge: int,
         solvent: str = None,
+        cosmo: bool = False,
         method: str = "r2scan-3c",
         sp_method: str = "r2scanh def2-qzvpp d4",
         conf_method="CREST",
@@ -124,6 +125,7 @@ class Molecule:
         self.mult = mult
         self.charge = charge
         self.solvent = solvent
+        self.cosmo = cosmo
         self.conf_method = conf_method
 
         # method functional, basis set, [opt] Dispersion correction, composite methods are also supported (e.g r2scan-3c)
@@ -144,6 +146,7 @@ class Molecule:
         charge: int,
         mult: int,
         solvent: str = None,
+        cosmo: bool = False,
         name: str = None,
         method: str = "r2scan-3c",
         sp_method="r2scanh def2-qzvpp d4",
@@ -152,7 +155,7 @@ class Molecule:
         """
         Creates a Molecule instance from an XYZ file.
         """
-        if name == None:
+        if name is None:
             name = os.path.basename(filepath).split(".")[0]
         atoms, coords = read_xyz(filepath)
         return cls(
@@ -162,6 +165,7 @@ class Molecule:
             charge=charge,
             mult=mult,
             solvent=solvent,
+            cosmo=cosmo,
             method=method,
             sp_method=sp_method,
             conf_method=conf_method,
@@ -763,6 +767,9 @@ class Molecule:
 
         solvent_formatted = f"CPCM({self.solvent})" if self.solvent else ""
 
+        if self.cosmo:
+            solvent_formatted = ""
+
         if "xtb" in self.sp_method.lower():
             print(
                 "SP calculation will not be conducted with semiemporical methods. Switching to r2scanh def2-qzvpp d4 defgrid 3 verytightscf."
@@ -810,6 +817,17 @@ class Molecule:
             "FINAL SINGLE POINT ENERGY", input_name.split(".")[0] + ".out"
         ):
             print("[SP] Single point calculation completed successfully.")
+            if self.cosmo:
+                print(f"COSMO was selected, start COSMO-RS job with {self.solvent}")
+
+                succes = self.cosmo_rs(driver=driver, slurm_params=slurm_params)
+
+                if succes:
+                    return True
+                else:
+                    print(f" COSMO-RS job failed for {self.name} .")
+                    return False
+
             return True
 
         print("[SP] Failed or not converged. Retrying...")
@@ -823,11 +841,46 @@ class Molecule:
             upper_limit=upper_limit,
         )
 
+    def cosmo_rs(self, driver: HPCDriver, slurm_params: dict):
+        """
+        Runs a COSMO-RS calculation on the molecule.
+        """
+
+        print(f"Starting COSMO-RS calculation for {self.name}.")
+        cosmors_input = (
+            f"! COSMORS({self.solvent})\n"
+            f"%pal nprocs {slurm_params['nprocs']} end\n"
+            f"%maxcore {slurm_params['maxcore']}\n"
+            f"*xyz {self.charge} {self.mult} \n"
+            f"{self.get_xyz_block()}*"
+        )
+        input_name = f"{self.name}_cosmors.inp"
+
+        with open(input_name, "w") as f:
+            f.write(cosmors_input)
+
+        job_id = driver.submit_job(input_name, input_name.split(".")[0] + "_slurm.out")
+        status = driver.check_job_status(job_id, step="COSMO-RS")
+
+        if status == "COMPLETED" and (
+            "ORCA TERMINATED NORMALLY"
+            in driver.grep_output(
+                "ORCA TERMINATED NORMALLY", input_name.split(".")[0] + ".out"
+            )
+            and "Free energy of solvation"
+            in driver.grep_output(
+                "Free energy of solvation", input_name.split(".")[0] + ".out"
+            )
+        ):
+            print("[COSMO-RS] COSMO-RS calculation completed successfully.")
+            return True
+        else:
+            print("[COSMO-RS] COSMO-RS calculation failed or not converged.")
+            print(status)
+            return False
+
     def get_lowest_confomer_goat(
-        self,
-        driver: HPCDriver,
-        slurm_params: dict,
-        cwd=None,
+        self, driver: HPCDriver, slurm_params: dict, cwd=None, censo: bool = False
     ) -> bool:
         print(
             f"Finding confomers for {self.name} with GOAT. XTB2 is used as method as dft metods are to exepnsive "
@@ -1132,6 +1185,7 @@ class Reaction:
                 "method",
                 "sp_method",
                 "solvent",
+                "cosmo",
             ],
         )
         if energies_path:
@@ -1169,6 +1223,7 @@ class Reaction:
         charge: int = 0,
         mult: int = 1,
         solvent: str = None,
+        cosmo: bool = False,
         sp_method: str = "r2scanh def2-qzvpp d4",
         name: str = "reaction",
         fast: bool = False,
@@ -1184,6 +1239,7 @@ class Reaction:
             charge=charge,
             mult=mult,
             solvent=solvent,
+            cosmo=cosmo,
             method=method,
             sp_method=sp_method,
             name="educt",
@@ -1194,6 +1250,7 @@ class Reaction:
             charge=charge,
             mult=mult,
             solvent=solvent,
+            cosmo=cosmo,
             method=method,
             sp_method=sp_method,
             name="product",
@@ -1205,6 +1262,7 @@ class Reaction:
                 charge=charge,
                 mult=mult,
                 solvent=solvent,
+                cosmo=cosmo,
                 name="ts",
                 method=method,
                 sp_method=sp_method,
@@ -1568,6 +1626,7 @@ class Reaction:
         driver: HPCDriver,
         slurm_params: dict,
         trial: int = 0,
+        cosmo: bool = False,
         upper_limit: int = MAX_TRIALS,
     ) -> bool:
         """

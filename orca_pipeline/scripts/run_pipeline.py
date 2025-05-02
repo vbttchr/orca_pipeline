@@ -111,6 +111,7 @@ def main() -> None:
     method = config.get("method")
     coords = config.get("coords")
     solvent = config.get("solvent")
+    cosmo = config.get("cosmo")
     Nimages = config.get("Nimages")
     fast = config.get("fast")
     zoom = config.get("zoom")
@@ -156,6 +157,7 @@ def main() -> None:
             charge=charge,
             mult=mult,
             solvent=solvent,
+            cosmo=cosmo,
             name=name,
             method=method,
             sp_method=sp_method,
@@ -173,6 +175,7 @@ def main() -> None:
             charge=charge,
             mult=mult,
             solvent=solvent,
+            cosmo=cosmo,
             sp_method=sp_method,
             name=name,
             fast=fast,
@@ -191,6 +194,7 @@ def main() -> None:
             charge=charge,
             mult=mult,
             solvent=solvent,
+            cosmo=cosmo,
             sp_method=sp_method,
             name=name,
             fast=fast,

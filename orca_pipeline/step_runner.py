@@ -28,6 +28,7 @@ logging.basicConfig(
 # TODO Restart/ Methods should check if a folder exists, if some steps are full filled
 # TODO Abortion due to other events than job failuer, slurm, my mistake etc.
 # TODO if last completed step ist last step, program aborts with errro, should gracefully terminate and tell the user that pipeline is done
+# TODO remomve some checks that I can start it from any starting point
 
 
 class StepRunner:
