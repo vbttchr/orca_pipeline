@@ -105,7 +105,8 @@ def main() -> None:
         parser.print_help()
         sys.exit(1)
 
-    config = defaultdict(lambda: "", parse_yaml(args.config))
+    config = defaultdict(lambda: "")
+    config.update(parse_yaml(args.config))
 
     charge = config.get("charge")
     mult = config.get("mult")
