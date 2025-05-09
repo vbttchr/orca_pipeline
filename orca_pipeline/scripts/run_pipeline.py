@@ -215,7 +215,7 @@ def main() -> None:
         home_dir=os.getcwd(),
         slurm_params_low_mem=slurm_params_low_mem,
         slurm_params_high_mem=slurm_params_high_mem,
-        conf_exclude=exclude_conf,
+        conf_exclude=conf_exclude,
     )
     # continue here
     start_time = time.time()
