@@ -16,6 +16,7 @@ import os
 from typing import List
 import sys
 import time
+from collections import defaultdict
 
 from orca_pipeline.hpc_driver import HPCDriver
 from orca_pipeline.step_runner import StepRunner
@@ -104,7 +105,7 @@ def main() -> None:
         parser.print_help()
         sys.exit(1)
 
-    config = parse_yaml(args.config)
+    config = defaultdict(lambda: "", parse_yaml(args.config))
 
     charge = config.get("charge")
     mult = config.get("mult")
