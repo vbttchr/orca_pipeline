@@ -41,12 +41,14 @@ class StepRunner:
         slurm_params_high_mem: Dict = SLURM_PARAMS_BIG_HIGH_MEM,
         slurm_params_low_mem: Dict = SLURM_PARAMS_BIG_LOW_MEM,
         home_dir: str = ".",
+        conf_exclude: str = None,
     ):
         self.hpc_driver = hpc_driver
         self.target = target
         self.slurm_params_high_mem = slurm_params_high_mem
         self.slurm_params_low_mem = slurm_params_low_mem
         self.home_dir = home_dir
+        self.conf_exclude = conf_exclude
         self.state_file = os.path.join(self.home_dir, "pipeline_state.json")
         self.state = self.load_state()
 
@@ -89,6 +91,7 @@ class StepRunner:
                         mult=self.target.product.mult,
                         solvent=self.target.product.solvent,
                         method=self.target.product.method,
+                                conf_exclude: str=None
                         sp_method=self.target.product.sp_method,
                         name="product_opt",
                     )
@@ -687,16 +690,16 @@ class StepRunner:
                 print("Starting conformer calculation form given reactants")
                 os.chdir("CONF")
 
-            self.make_folder("educt_confs")
-            self.make_folder("product_confs")
             success = False
             if self.target.conf_method == "CREST":
+                self.make_folder("product_confs")
+                self.make_folder("educt_confs")
                 success = self.target.get_lowest_confomers(
-                    self.hpc_driver, self.slurm_params_low_mem, crest=True
+                    self.hpc_driver, self.slurm_params_low_mem, crest=True,exclude=self.conf_exclude
                 )
             else:
                 success = self.target.get_lowest_confomers(
-                    self.hpc_driver, self.slurm_params_low_mem, crest=False
+                    self.hpc_driver, self.slurm_params_low_mem, crest=False,conf_exclude=self.conf_exclude
                 )
             if success:
                 print("Conformer calculation successful. Optimizing best confomers")

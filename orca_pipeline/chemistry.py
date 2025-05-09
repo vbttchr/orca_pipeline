@@ -1687,10 +1687,13 @@ class Reaction:
         trial: int = 0,
         upper_limit: int = MAX_TRIALS,
         crest: bool = True,
+        conf_exclude: str = None,
     ) -> bool:
         """
         Generates conformers for the educt and product.
         Function expects that there are educt and product directories in the current working directory.
+
+        exclude: educt, product. Sometimes it makes sense to omit the conf ensemble for a specific step.
 
 
 
@@ -1699,43 +1702,47 @@ class Reaction:
         # TODO implement option to do it with GOAT
         # TODO implement TS conf-generation
         results = []
+
         if crest:
             print("Searching for lowest conformers with CREST")
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-                results.append(
-                    executor.submit(
-                        self.educt.get_lowest_confomer_crest,
-                        driver,
-                        slurm_params,
-                        trial,
-                        upper_limit,
-                        cwd="educt_confs",
+                if "educt" not in conf_exclude:
+                    results.append(
+                        executor.submit(
+                            self.educt.get_lowest_confomer_crest,
+                            driver,
+                            slurm_params,
+                            trial,
+                            upper_limit,
+                            cwd="educt_confs",
+                        )
                     )
-                )
-
-                results.append(
-                    executor.submit(
-                        self.product.get_lowest_confomer_crest,
-                        driver,
-                        slurm_params,
-                        trial,
-                        upper_limit,
-                        cwd="product_confs",
+                if "product" not in conf_exclude:
+                    results.append(
+                        executor.submit(
+                            self.product.get_lowest_confomer_crest,
+                            driver,
+                            slurm_params,
+                            trial,
+                            upper_limit,
+                            cwd="product_confs",
+                        )
                     )
-                )
         else:
             print("Searching for lowest confomers using GOAT")
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-                results.append(
-                    executor.submit(
-                        self.educt.get_lowest_confomer_goat, driver, slurm_params
+                if "educt" not in conf_exclude:
+                    results.append(
+                        executor.submit(
+                            self.educt.get_lowest_confomer_goat, driver, slurm_params
+                        )
                     )
-                )
-                results.append(
-                    executor.submit(
-                        self.product.get_lowest_confomer_goat, driver, slurm_params
+                if "product" not in conf_exclude:
+                    results.append(
+                        executor.submit(
+                            self.product.get_lowest_confomer_goat, driver, slurm_params
+                        )
                     )
-                )
 
         return all([result.result() for result in results])
 

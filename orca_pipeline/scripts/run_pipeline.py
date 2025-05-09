@@ -119,6 +119,7 @@ def main() -> None:
     name = config.get("name")
     steps = parse_steps(config.get("steps"))
     conf_method = config.get("conf_method")
+    conf_exclude = config.get("conf_exlude")
     slurm_params_low_mem = config.get("slurm_params_low_mem")
     slurm_params_high_mem = config.get("slurm_params_high_mem")
 
@@ -214,6 +215,7 @@ def main() -> None:
         home_dir=os.getcwd(),
         slurm_params_low_mem=slurm_params_low_mem,
         slurm_params_high_mem=slurm_params_high_mem,
+        conf_exclude=exclude_conf,
     )
     # continue here
     start_time = time.time()
