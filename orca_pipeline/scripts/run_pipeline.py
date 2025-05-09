@@ -121,7 +121,7 @@ def main() -> None:
     name = config.get("name")
     steps = parse_steps(config.get("steps"))
     conf_method = config.get("conf_method")
-    conf_exclude = config.get("conf_exlude")
+    conf_exclude = config.get("conf_exlude", "")
     slurm_params_low_mem = config.get("slurm_params_low_mem")
     slurm_params_high_mem = config.get("slurm_params_high_mem")
 
@@ -137,7 +137,8 @@ def main() -> None:
     ]
     for key in required_keys:
         if config.get(key) is None:
-            print(f"Error: Missing required key '{key}' in configuration file.")
+            print(
+                f"Error: Missing required key '{key}' in configuration file.")
             sys.exit(1)
 
     print("Starting Pipeline with parameters:")
