@@ -91,7 +91,6 @@ class StepRunner:
                         mult=self.target.product.mult,
                         solvent=self.target.product.solvent,
                         method=self.target.product.method,
-                                conf_exclude: str=None
                         sp_method=self.target.product.sp_method,
                         name="product_opt",
                     )
