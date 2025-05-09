@@ -94,7 +94,7 @@ def main() -> None:
         "config",
         type=str,
         nargs="?",
-        default=None,
+        default="",
         help="Path to the YAML configuration file.",
     )
 

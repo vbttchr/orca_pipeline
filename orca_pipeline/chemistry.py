@@ -19,7 +19,7 @@ from orca_pipeline.hpc_driver import HPCDriver
 # TODO add FOD functio
 # TODO add plotting function
 # TODO add functionality for plotting function to several Steps.
-# TODO add censo option to confomers and maybe GOAT.
+# TODO add censo option to confomers
 # TODO For the Future maybe usew tight opt Settings for TS opt and add this also to the final optimisation of the sampled conformers
 # TODO Add option to caluclate solvation energy with cosmors
 # TODO add something to reaction to do stuff with seperated reactants.
@@ -1687,7 +1687,7 @@ class Reaction:
         trial: int = 0,
         upper_limit: int = MAX_TRIALS,
         crest: bool = True,
-        conf_exclude: str = None,
+        conf_exclude: str = "",
     ) -> bool:
         """
         Generates conformers for the educt and product.

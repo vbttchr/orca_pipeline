@@ -41,7 +41,7 @@ class StepRunner:
         slurm_params_high_mem: Dict = SLURM_PARAMS_BIG_HIGH_MEM,
         slurm_params_low_mem: Dict = SLURM_PARAMS_BIG_LOW_MEM,
         home_dir: str = ".",
-        conf_exclude: str = None,
+        conf_exclude: str = "",
     ):
         self.hpc_driver = hpc_driver
         self.target = target
