@@ -129,7 +129,8 @@ class Molecule:
         self.solvent = solvent
         self.cosmo = cosmo
         self.conf_method = conf_method
-
+        # If true use  settings which should work foo all systems, if wft is convergabel, could tak long
+        self.dif_scf = dif_scf
         # method functional, basis set, [opt] Dispersion correction, composite methods are also supported (e.g r2scan-3c)
         self.method = method
         self.sp_method = sp_method
@@ -153,6 +154,7 @@ class Molecule:
         method: str = "r2scan-3c",
         sp_method="r2scanh def2-qzvpp d4",
         conf_method="CREST",
+        dif_scf: bool = False,
     ) -> "Molecule":
         """
         Creates a Molecule instance from an XYZ file.
@@ -171,6 +173,7 @@ class Molecule:
             method=method,
             sp_method=sp_method,
             conf_method=conf_method,
+            dif_scf=dif_scf,
         )
 
     def __str__(self) -> str:
