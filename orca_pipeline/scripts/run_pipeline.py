@@ -117,6 +117,7 @@ def main() -> None:
     Nimages = config.get("Nimages")
     fast = config.get("fast")
     zoom = config.get("zoom")
+    dif_scf = config.get("dif_scf")
     sp_method = config.get("sp_method")
     name = config.get("name")
     steps = parse_steps(config.get("steps"))
@@ -166,6 +167,7 @@ def main() -> None:
             method=method,
             sp_method=sp_method,
             conf_method=conf_method,
+            dif_scf=dif_scf,
         )  # Molecule
     elif len(coords) == 2:
         name = "Reaction" if not name else name
@@ -185,6 +187,7 @@ def main() -> None:
             fast=fast,
             zoom=zoom,
             conf_method=conf_method,
+            dif_scf=dif_scf,
         )  # Reaction
 
     elif len(coords) == 3:
@@ -204,6 +207,7 @@ def main() -> None:
             fast=fast,
             zoom=zoom,
             conf_method=conf_method,
+            dif_scf=dif_scf,
         )  # Reaction  # Reaction
     else:
         print("Error: Invalid number of coordinate files provided.")

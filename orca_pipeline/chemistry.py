@@ -59,7 +59,8 @@ def read_xyz(filepath: str) -> Tuple[List[str], np.ndarray]:
             try:
                 coords.append([float(x), float(y), float(z)])
             except ValueError as e:
-                print(f"Warning: Invalid coordinates on line {idx} in {filepath}: {e}")
+                print(
+                    f"Warning: Invalid coordinates on line {idx} in {filepath}: {e}")
                 continue
             atoms.append(atom)
 
@@ -118,6 +119,7 @@ class Molecule:
         method: str = "r2scan-3c",
         sp_method: str = "r2scanh def2-qzvpp d4",
         conf_method="CREST",
+        dif_scf: bool = False,
     ) -> None:
         self.name = name
         self.atoms = atoms
@@ -201,7 +203,8 @@ class Molecule:
             file.write(f"{len(self.atoms)}\n")
             file.write("\n")
             for atom, coord in zip(self.atoms, self.coords):
-                file.write(f"{atom} {coord[0]:.9f} {coord[1]:.9f} {coord[2]:.9f}\n")
+                file.write(
+                    f"{atom} {coord[0]:.9f} {coord[1]:.9f} {coord[2]:.9f}\n")
 
     def update_coords_from_xyz(self, filepath: str) -> None:
         """
@@ -226,6 +229,7 @@ class Molecule:
         trial: int = 0,
         upper_limit: int = MAX_TRIALS,
         tight: bool = False,
+        dif_scf: bool = False,
     ) -> bool:
         """
         Optimises the geometry of the molecule.
@@ -259,11 +263,17 @@ class Molecule:
 
         input_name = f"{self.name}_opt.inp"
         opt_block = "tightscf opt" if tight else "opt"
+        scf_block = ""
+        if dif_scf:
+            scf_block = (
+                f"%scf\n maxiter 1000\n DIISMaxeq 20\n directresetfreq 10\n end "
+            )
 
         input = (
             f"!{self.method} {solvent_formatted} {opt_block}\n"
             f"%pal nprocs {slurm_params['nprocs']} end\n"
             f"%maxcore {slurm_params['maxcore']}\n"
+            f"{scf_block}"
             f"*xyz {self.charge} {self.mult} \n"
             f"{self.get_xyz_block()}*"
         )
@@ -369,7 +379,8 @@ class Molecule:
                 print("[FREQ] Calculation completed successfully.")
                 if ts:
                     output = driver.grep_output(
-                        "**imaginary mode***", input_name.split(".")[0] + ".out"
+                        "**imaginary mode***", input_name.split(".")[
+                            0] + ".out"
                     )
                     match = re.search(r"(-?\d+\.\d+)\s*cm\*\*-1", output)
                     if match:
@@ -436,7 +447,8 @@ class Molecule:
                 print("Guess has no significant imaginary frequency. Aborting.")
                 return False
             else:
-                shutil.move(f"{self.name}_freq.hess", f"{self.name}_guess.hess")
+                shutil.move(f"{self.name}_freq.hess",
+                            f"{self.name}_guess.hess")
 
             # step_runner checks if a hess is present in NEB copyies it. If one wants to use antohter hess, one can copy it to the guess.hess file
         if not os.path.exists(f"{self.name}_guess.hess"):
@@ -445,7 +457,8 @@ class Molecule:
                 print("Guess has no significant imaginary frequency. Aborting.")
                 return False
             else:
-                shutil.move(f"{self.name}_freq.hess", f"{self.name}_guess.hess")
+                shutil.move(f"{self.name}_freq.hess",
+                            f"{self.name}_guess.hess")
 
         if trial == 1:
             self.to_xyz("ts_guess.xyz")
@@ -709,7 +722,8 @@ class Molecule:
         with open(input_name, "w") as f:
             f.write(irc_input)
 
-        job_id = driver.submit_job(input_name, input_name.split(".")[0] + "_slurm.out")
+        job_id = driver.submit_job(
+            input_name, input_name.split(".")[0] + "_slurm.out")
         status = driver.check_job_status(job_id, step="IRC")
 
         if status == "COMPLETED" and (
@@ -788,7 +802,8 @@ class Molecule:
                         3 / 4
                     )
 
-                self.freq_job(driver=driver, slurm_params=slurm_params_freq, ts=False)
+                self.freq_job(
+                    driver=driver, slurm_params=slurm_params_freq, ts=False)
 
         trial += 1
         print(f"[SP] Trial {trial} ")
@@ -809,7 +824,8 @@ class Molecule:
         input_name = f"{self.name}_SP.inp"
         with open(input_name, "w") as f:
             f.write(sp_input)
-        job_id = driver.submit_job(input_name, input_name.split(".")[0] + "_slurm.out")
+        job_id = driver.submit_job(
+            input_name, input_name.split(".")[0] + "_slurm.out")
 
         status = driver.check_job_status(job_id, step="SP")
 
@@ -818,9 +834,11 @@ class Molecule:
         ):
             print("[SP] Single point calculation completed successfully.")
             if self.cosmo:
-                print(f"COSMO was selected, start COSMO-RS job with {self.solvent}")
+                print(
+                    f"COSMO was selected, start COSMO-RS job with {self.solvent}")
 
-                succes = self.cosmo_rs(driver=driver, slurm_params=slurm_params)
+                succes = self.cosmo_rs(
+                    driver=driver, slurm_params=slurm_params)
 
                 if succes:
                     return True
@@ -859,7 +877,8 @@ class Molecule:
         with open(input_name, "w") as f:
             f.write(cosmors_input)
 
-        job_id = driver.submit_job(input_name, input_name.split(".")[0] + "_slurm.out")
+        job_id = driver.submit_job(
+            input_name, input_name.split(".")[0] + "_slurm.out")
         status = driver.check_job_status(job_id, step="COSMO-RS")
 
         if status == "COMPLETED" and (
@@ -901,7 +920,8 @@ class Molecule:
         with open(input_name, "w") as f:
             f.write(goat_input)
 
-        job_id = driver.submit_job(input_name, input_name.split(".")[0] + "_slurm.out")
+        job_id = driver.submit_job(
+            input_name, input_name.split(".")[0] + "_slurm.out")
         status = driver.check_job_status(job_id, step="GOAT")
 
         if status == "COMPLETED" and "ORCA TERMINATED NORMALLY" in driver.grep_output(
@@ -909,7 +929,8 @@ class Molecule:
         ):
             print("[GOAT] GOAT calculation completed successfully.")
 
-            self.update_coords_from_xyz(input_name.split(".")[0] + ".globalminimum.xyz")
+            self.update_coords_from_xyz(
+                input_name.split(".")[0] + ".globalminimum.xyz")
 
             return True
         else:
@@ -983,7 +1004,8 @@ class Molecule:
                 print("[CREST] CREST failed")
                 print("grep output")
                 print(
-                    driver.grep_output("CREST terminated normally", output, flags="-a")
+                    driver.grep_output(
+                        "CREST terminated normally", output, flags="-a")
                 )
                 print(f"{os.getcwd()} current directory")
                 return False
@@ -1059,7 +1081,8 @@ def get_reaction_energies(self) -> bool:
         return True
 
     if not os.path.exists("SP"):
-        raise FileNotFoundError("SP folder not found. Run SP calculations first.")
+        raise FileNotFoundError(
+            "SP folder not found. Run SP calculations first.")
 
     steps = [f"{self.name}"]
     sp_energies = []
@@ -1081,7 +1104,8 @@ def get_reaction_energies(self) -> bool:
             )
         print("Chekcking if reactants are true minima and TS true saddle point")
 
-        imags = driver.grep_output("***imaginary mode***", freq_file).split("\n")
+        imags = driver.grep_output(
+            "***imaginary mode***", freq_file).split("\n")
         imags = [line for line in imags if line.strip() != ""]
 
         if len(imags) > 0:
@@ -1094,7 +1118,8 @@ def get_reaction_energies(self) -> bool:
 
         sp_energies.append(
             float(
-                driver.grep_output("FINAL SINGLE POINT ENERGY", sp_file).split(" ")[-1]
+                driver.grep_output(
+                    "FINAL SINGLE POINT ENERGY", sp_file).split(" ")[-1]
             )
         )
         # maybe it is super consistent and we can just count where it is. This is kinda fool proofed
@@ -1107,7 +1132,8 @@ def get_reaction_energies(self) -> bool:
         index = tmp.index("Eh") - 1
         inner_energy_corrections.append(float(tmp[index]))
 
-        tmp = driver.grep_output("Thermal Enthalpy correction", freq_file).split(" ")
+        tmp = driver.grep_output(
+            "Thermal Enthalpy correction", freq_file).split(" ")
         index = tmp.index("Eh") - 1
         enthalpy_corrections.append(float(tmp[index]))
 
@@ -1332,7 +1358,8 @@ class Reaction:
         Assums that the educt and products are already optimized with the same method
         """
         trial += 1
-        print(f"[NEB_CI] Trial {trial}, Nimages={self.nimages}, Method={self.method}")
+        print(
+            f"[NEB_CI] Trial {trial}, Nimages={self.nimages}, Method={self.method}")
         if trial > upper_limit:
             print("[NEB_CI] Too many trials aborting.")
             return False
@@ -1384,7 +1411,8 @@ class Reaction:
             status == "COMPLETED"
             and "THE NEB OPTIMIZATION HAS CONVERGED"
             in driver.grep_output(
-                "THE NEB OPTIMIZATION HAS CONVERGED", input_name.split(".")[0] + ".out"
+                "THE NEB OPTIMIZATION HAS CONVERGED", input_name.split(".")[
+                    0] + ".out"
             )
         ):
             print("[NEB_CI] Completed successfully.")
@@ -1567,7 +1595,8 @@ class Reaction:
                         neb_input_name.split(".")[0] + "_NEB-CI_converged.xyz"
                     ):
                         shutil.move(
-                            neb_input_name.split(".")[0] + "_NEB-CI_converged.xyz",
+                            neb_input_name.split(
+                                ".")[0] + "_NEB-CI_converged.xyz",
                             "Failed_calculations",
                         )
 
@@ -1590,7 +1619,8 @@ class Reaction:
 
             if not os.path.exists("Failed_calculations"):
                 os.mkdir("Failed_calculations")
-            shutil.move(neb_input_name.split(".")[0] + ".out", "Failed_calculations")
+            shutil.move(neb_input_name.split(".")[
+                        0] + ".out", "Failed_calculations")
             if os.path.exists(neb_input_name.split(".")[0] + "_NEB-CI_converged.xyz"):
                 shutil.move(
                     neb_input_name.split(".")[0] + "_NEB-CI_converged.xyz",
@@ -1611,13 +1641,15 @@ class Reaction:
         time.sleep(RETRY_DELAY)
         if not os.path.exists("Failed_calculations"):
             os.mkdir("Failed_calculations")
-        shutil.move(neb_input_name.split(".")[0] + ".out", "Failed_calculations")
+        shutil.move(neb_input_name.split(".")[
+                    0] + ".out", "Failed_calculations")
         if os.path.exists(neb_input_name.split(".")[0] + "_NEB-CI_converged.xyz"):
             shutil.move(
                 neb_input_name.split(".")[0] + "_NEB-CI_converged.xyz",
                 "Failed_calculations",
             )
-        driver.shell_command("rm -rf *.gbw pmix* *densities* freq.inp slurm* *neb*.inp")
+        driver.shell_command(
+            "rm -rf *.gbw pmix* *densities* freq.inp slurm* *neb*.inp")
 
         return "failed", False
 
@@ -1761,7 +1793,8 @@ class Reaction:
             return True
 
         if not os.path.exists("SP"):
-            raise FileNotFoundError("SP folder not found. Run SP calculations first.")
+            raise FileNotFoundError(
+                "SP folder not found. Run SP calculations first.")
 
         steps = ["educt", "transition_state", "product"]
         sp_energies = []
@@ -1783,7 +1816,8 @@ class Reaction:
                 )
             print("Chekcking if reactants are true minima and TS true saddle point")
 
-            imags = driver.grep_output("***imaginary mode***", freq_file).split("\n")
+            imags = driver.grep_output(
+                "***imaginary mode***", freq_file).split("\n")
             imags = [line for line in imags if line.strip() != ""]
 
             if len(imags) > 0:
@@ -1817,11 +1851,13 @@ class Reaction:
             index = tmp.index("Eh") - 1
             enthalpy_corrections.append(float(tmp[index]))
 
-            tmp = driver.grep_output("Final entropy term", freq_file).split(" ")
+            tmp = driver.grep_output(
+                "Final entropy term", freq_file).split(" ")
             index = tmp.index("Eh") - 1
             entropies.append(float(tmp[index]))
             temperatures.append(
-                float(driver.grep_output("Temperature", freq_file).split(" ")[-2])
+                float(driver.grep_output(
+                    "Temperature", freq_file).split(" ")[-2])
             )
             methods.append(self.educt.method)
             sp_methods.append(self.educt.sp_method)
