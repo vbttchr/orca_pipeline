@@ -1000,7 +1000,7 @@ class Molecule:
                 return False
         return False
 
-    def fod_calc(self, driver, slurm_params, trial=0, upper_limit=5):
+    def fod_calc(self, driver, slurm_params, trial=0, upper_limit=5, dif_scf=False):
         trial += 1
         print(f"[FOD] Trial {trial} ")
         if trial > upper_limit:
@@ -1013,12 +1013,18 @@ class Molecule:
         print(
             "FOD is currently conducted with default settings -> TPSS def2-TZVP at 5000K"
         )
+        scf_block = ""
+        if dif_scf:
+            scf_block = (
+                f"%scf\n maxiter 1000\n DIISMaxeq 20\n directresetfreq 10\n end \n"
+            )
 
         input_name = f"{self.name}_FOD.inp"
         fod_input = (
             f"!FOD\n"
             f"%pal nprocs {slurm_params['nprocs']} end\n"
             f"%maxcore {slurm_params['maxcore']}\n"
+            f"{scf_block}"
             f"*xyz {self.charge} {self.mult} \n"
             f"{self.get_xyz_block()}*"
         )
@@ -1668,6 +1674,7 @@ class Reaction:
         slurm_params: dict,
         trial: int = 0,
         upper_limit: int = MAX_TRIALS,
+        dif_scf: bool = False,
     ) -> bool:
         """
         Does FOD with all reactants
@@ -1676,10 +1683,20 @@ class Reaction:
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
             results = [
                 executor.submit(
-                    self.educt.fod_calc, driver, slurm_params, trial, upper_limit
+                    self.educt.fod_calc,
+                    driver,
+                    slurm_params,
+                    trial,
+                    upper_limit,
+                    dif_scf,
                 ),
                 executor.submit(
-                    self.product.fod_calc, driver, slurm_params, trial, upper_limit
+                    self.product.fod_calc,
+                    driver,
+                    slurm_params,
+                    trial,
+                    upper_limit,
+                    dif_scf,
                 ),
                 executor.submit(
                     self.transition_state.fod_calc,
@@ -1687,6 +1704,7 @@ class Reaction:
                     slurm_params,
                     trial,
                     upper_limit,
+                    dif_scf,
                 ),
             ]
         return all([result.result() for result in results])

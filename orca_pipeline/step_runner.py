@@ -69,7 +69,7 @@ class StepRunner:
             index = self.steps.index(self.completed_steps)
 
             next_step = self.steps[index + 1]
-            self.steps = self.steps[self.steps.index(next_step):]
+            self.steps = self.steps[self.steps.index(next_step) :]
             logging.info(f"Resuming pipeline with steps: {self.steps}")
             match next_step:
                 case "NEB_TS" | "NEB_CI":
@@ -191,8 +191,7 @@ class StepRunner:
                             name="ts",
                         )
                     else:
-                        logging.erro(
-                            "Cannot resume IRC step could not load TS_opt")
+                        logging.erro("Cannot resume IRC step could not load TS_opt")
                         sys.exit(1)
                 case "SP":
                     if isinstance(self.target, Reaction):
@@ -425,8 +424,7 @@ class StepRunner:
             success = self.execute_step(step)
             os.chdir(self.home_dir)
             if not success:
-                logging.error(
-                    f"Pipeline halted due to failure in step '{step}'.")
+                logging.error(f"Pipeline halted due to failure in step '{step}'.")
                 with open("FAILED.out", "w") as f:
                     f.write(f"Failed at step: {step}\n")
                 self.save_state()
@@ -447,7 +445,6 @@ class StepRunner:
                 self.slurm_params_low_mem,
                 trial=0,
                 upper_limit=MAX_TRIALS,
-
             )
         elif isinstance(self.target, Molecule):
             self.make_folder("OPT")
@@ -457,7 +454,7 @@ class StepRunner:
                 self.slurm_params_low_mem,
                 trial=0,
                 upper_limit=MAX_TRIALS,
-                dif_scf=self.target.dif_scf
+                dif_scf=self.target.dif_scf,
             )
         else:
             logging.error("Unsupported target type for geometry optimization.")
@@ -475,8 +472,7 @@ class StepRunner:
                 upper_limit=MAX_TRIALS,
             )
         else:
-            logging.error(
-                "NEB-CI step is only applicable to Reaction objects.")
+            logging.error("NEB-CI step is only applicable to Reaction objects.")
             return False
 
     def neb_ts(self) -> bool:
@@ -497,8 +493,7 @@ class StepRunner:
             else:
                 return success
         else:
-            logging.error(
-                "NEB-TS step is only applicable to Reaction objects.")
+            logging.error("NEB-TS step is only applicable to Reaction objects.")
             return False
 
     def ts_opt(self) -> bool:
@@ -551,8 +546,7 @@ class StepRunner:
                 upper_limit=MAX_TRIALS,
             )
         else:
-            logging.error(
-                "TS optimization is only applicable to Reaction objects.")
+            logging.error("TS optimization is only applicable to Reaction objects.")
             return False
 
     def irc_job(self) -> bool:
@@ -592,8 +586,7 @@ class StepRunner:
             os.chdir("SP")
             return self.target.sp_calc(self.hpc_driver, self.slurm_params_low_mem)
         else:
-            logging.error(
-                "Unsupported target type for single point calculation.")
+            logging.error("Unsupported target type for single point calculation.")
             return False
 
     def conf_calc(self) -> bool:
@@ -644,15 +637,11 @@ class StepRunner:
                 print("Starting conformer calculation from IRC or QRC end points")
 
                 if os.path.exists("IRC/QRC"):
-                    self.hpc_driver.shell_command(
-                        "cp IRC/*Backwards.xyz CONF/back.xyz")
-                    self.hpc_driver.shell_command(
-                        "cp IRC/*Forwards.xyz CONF/front.xyz")
+                    self.hpc_driver.shell_command("cp IRC/*Backwards.xyz CONF/back.xyz")
+                    self.hpc_driver.shell_command("cp IRC/*Forwards.xyz CONF/front.xyz")
                 else:
-                    self.hpc_driver.shell_command(
-                        "cp IRC/*IRC_B.xyz CONF/back.xyz")
-                    self.hpc_driver.shell_command(
-                        "cp IRC/*IRC_F.xyz CONF/front.xyz")
+                    self.hpc_driver.shell_command("cp IRC/*IRC_B.xyz CONF/back.xyz")
+                    self.hpc_driver.shell_command("cp IRC/*IRC_F.xyz CONF/front.xyz")
                 print("Checking which IRC endpoint is closer to educt")
                 os.chdir("CONF")
                 self.target.educt.to_xyz("educt.xyz")
@@ -706,11 +695,17 @@ class StepRunner:
                 self.make_folder("product_confs")
                 self.make_folder("educt_confs")
                 success = self.target.get_lowest_confomers(
-                    self.hpc_driver, self.slurm_params_low_mem, crest=True, exclude=self.conf_exclude
+                    self.hpc_driver,
+                    self.slurm_params_low_mem,
+                    crest=True,
+                    exclude=self.conf_exclude,
                 )
             else:
                 success = self.target.get_lowest_confomers(
-                    self.hpc_driver, self.slurm_params_low_mem, crest=False, conf_exclude=self.conf_exclude
+                    self.hpc_driver,
+                    self.slurm_params_low_mem,
+                    crest=False,
+                    conf_exclude=self.conf_exclude,
                 )
             if success:
                 print("Conformer calculation successful. Optimizing best confomers")
@@ -740,9 +735,20 @@ class StepRunner:
         return self.target.get_reaction_energies()
 
     def fod_job(self) -> bool:
+        dif_scf = False
+        if isinstance(self.target, Reaction):
+            dif_scf = self.target.educt.dif_scf
+        else:
+            dif_scf = self.target.dif_scf
         self.make_folder("FOD")
         os.chdir("FOD")
-        return self.target.fod_calc(self.hpc_driver, self.slurm_params_low_mem)
+        return self.target.fod_calc(
+            driver=self.hpc_driver,
+            slurm_params=self.slurm_params_low_mem,
+            trial=0,
+            upper_limit=MAX_TRIALS,
+            dif_scf=dif_scf,
+        )
 
     def handle_failed_neb(self, uper_limit):
         if "xtb" in self.target.method.lower():
