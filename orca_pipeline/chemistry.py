@@ -1191,7 +1191,9 @@ class Reaction:
         self.charge = educt.charge
         self.mult = educt.mult
         self.conf_method = conf_method
+        self.dif_scf = dif_scf,
         self.energies = pd.DataFrame(
+
             columns=[
                 "step",
                 "single_point_energy",
@@ -1204,7 +1206,6 @@ class Reaction:
                 "solvent",
                 "cosmo",
             ],
-        self.dif_scf = dif_scf
         )
         if energies_path:
             self.energies = pd.read_csv(energies_path)
