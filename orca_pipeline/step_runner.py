@@ -29,6 +29,7 @@ logging.basicConfig(
 # TODO Abortion due to other events than job failuer, slurm, my mistake etc.
 # TODO if last completed step ist last step, program aborts with errro, should gracefully terminate and tell the user that pipeline is done
 # TODO remomve some checks that I can start it from any starting point
+# Add dif_scf everywhere
 
 
 class StepRunner:
@@ -84,6 +85,7 @@ class StepRunner:
                         method=self.target.educt.method,
                         sp_method=self.target.educt.sp_method,
                         name="educt_opt",
+                        dif_scf=self.target.educt.dif_scf,
                     )
                     self.target.product = Molecule.from_xyz(
                         filepath="OPT/product_opt.xyz",
@@ -92,6 +94,7 @@ class StepRunner:
                         solvent=self.target.product.solvent,
                         method=self.target.product.method,
                         sp_method=self.target.product.sp_method,
+                        dif_scf=self.target.product.dif_scf,
                         name="product_opt",
                     )
                 case "TS":
@@ -110,6 +113,7 @@ class StepRunner:
                                 method=self.target.educt.method,
                                 sp_method=self.target.educt.sp_method,
                                 name="educt_opt",
+                                dif_scf=self.target.transition_state.dif_scf,
                             )
                             self.target.product = Molecule.from_xyz(
                                 filepath="NEB/product.xyz",
@@ -119,6 +123,7 @@ class StepRunner:
                                 method=self.target.product.method,
                                 sp_method=self.target.product.sp_method,
                                 name="product_opt",
+                                dif_scf=self.target.product.dif_scf,
                             )
                             if os.path.exists("TS") and os.path.exists(
                                 "TS/ts_guess.xyz"
@@ -130,6 +135,7 @@ class StepRunner:
                                     solvent=self.target.educt.solvent,
                                     method=self.target.educt.method,
                                     sp_method=self.target.educt.sp_method,
+                                    dif_scf=self.target.transition_state.dif_scf,
                                     name="ts_guess",
                                 )
                             else:
@@ -154,6 +160,7 @@ class StepRunner:
                                     method=self.target.educt.method,
                                     sp_method=self.target.educt.sp_method,
                                     name="ts_guess",
+                                    dif_scf=self.target.transition_state.dif_scf,
                                 )
                 case "IRC":
                     if not os.path.exists("TS"):

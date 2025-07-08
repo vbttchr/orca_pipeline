@@ -230,7 +230,6 @@ class Molecule:
         trial: int = 0,
         upper_limit: int = MAX_TRIALS,
         tight: bool = False,
-        dif_scf: bool = False,
     ) -> bool:
         """
         Optimises the geometry of the molecule.
@@ -265,7 +264,7 @@ class Molecule:
         input_name = f"{self.name}_opt.inp"
         opt_block = "tightscf opt" if tight else "opt"
         scf_block = ""
-        if dif_scf:
+        if self.dif_scf:
             scf_block = (
                 f"%scf\n maxiter 1000\n DIISMaxeq 20\n directresetfreq 10\n end \n"
             )
@@ -1176,7 +1175,8 @@ class Reaction:
         fast: bool = False,
         zoom: bool = False,
         energies_path: str = None,
-        conf_method="CREST",
+        conf_method:str ="CREST",
+        dif_scf: bool =False,
     ) -> None:
         self.educt = educt
         self.product = product
@@ -1204,6 +1204,7 @@ class Reaction:
                 "solvent",
                 "cosmo",
             ],
+        self.dif_scf = dif_scf
         )
         if energies_path:
             self.energies = pd.read_csv(energies_path)
@@ -1247,6 +1248,7 @@ class Reaction:
         zoom: bool = False,
         energy_file: str = None,
         conf_method: str = "CREST",
+        dif_scf:bool = False
     ) -> "Reaction":
         """
         Creates an Reaction instance from XYZ files.
@@ -1261,6 +1263,7 @@ class Reaction:
             sp_method=sp_method,
             name="educt",
             conf_method=conf_method,
+            dif_scf=dif_scf
         )
         product = Molecule.from_xyz(
             product_filepath,
@@ -1272,6 +1275,7 @@ class Reaction:
             sp_method=sp_method,
             name="product",
             conf_method=conf_method,
+            dif_scf= dif_scf
         )
         transition_state = (
             Molecule.from_xyz(
@@ -1283,6 +1287,7 @@ class Reaction:
                 name="ts",
                 method=method,
                 sp_method=sp_method,
+                dif_scf=dif_scf
             )
             if transition_state_filepath
             else None
@@ -1300,6 +1305,8 @@ class Reaction:
             zoom=zoom,
             energies_path=energy_file,
             conf_method=conf_method,
+            dif_scf = dif_scf
+            
         )
 
     def optimise_reactants(
@@ -1324,6 +1331,7 @@ class Reaction:
                     trial,
                     upper_limit,
                     tight,
+                    
                 ),
                 executor.submit(
                     self.product.geometry_opt,
