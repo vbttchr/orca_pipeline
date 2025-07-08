@@ -1,0 +1,88 @@
+### GENREAL INFO ### 
+
+I made this package while there was an issue with openmpi and ORCA. 
+
+I used CHATGPT to do the package, hence there could also be errors, which the bot introduced. 
+
+If you find a bug, either write an issue and hope that I fix it or make a pull request. 
+
+It was not intended to be a genral purpose pipeline, rather just to implement what I needed. 
+
+It might be that there are inconsitencies between the methods. Check the source code.
+
+It is not intended as a black-box. Check that what it is doing is acutally what you want
+
+
+
+
+###### Pre-requisite #### 
+
+1) Install package: 
+
+1) python -m venv --system-site-packages <venv_name>   ## If there is a conflict after installation drop the --system-site-packages
+
+a Note about Conda enviroments from the Cluster support:
+
+Conda uses many small files, which doesn't work well with Euler's Lustre file systems:
+
+We therefore recommend to use:
+
+    Home directory but be aware of the 100k file limit.
+    Scratch directory but be aware of the automatic clean up policy.
+    Project directory
+
+Don't use:
+
+    Work directory
+
+I recommend using Python enviroments as space on HOME is limited. 
+
+
+2) In you bin place
+
+ssubo and ssubpipeline. You can find them in the scripts folder. 
+ - ssubo is a submission script for ORCA on SLURM
+ - ssubpipline is a submission script to run the pipeline.  
+
+
+Check that your bin is part of you PATH. You can check this with echo $PATH
+
+If not run this command  
+
+echo 'export PATH="$PATH:/path/to/your/bin"' >> ~/.bashrc
+
+Then either do: source ~/.bashrc or disconnect and reconnect to the clulster
+
+2) Example. 
+
+The example input is the tst.yaml. 
+
+The example will do the pipeline for a Diels-Alder reaction. 
+
+It will perform the following steps: 
+
+1) OPT: Optimized educt and prodcut. 
+
+2) NEB-TS: NEB-TS with xtb2
+
+3) TS: TS optimization with r2scan-3c
+
+4) IRC: Confirm Transition state:
+
+5) CONF: Find lowest conf on xtb2 surface with GOAT. OPtimize lowwest found with r2scan-3c.
+
+! You might notice that the educt.xyz contains the coordinate of the cyclohexen. This is intended. NEB is usually easier to do for the "dissocation" than for the bond forming. 
+
+###############
+
+### INPUT #### 
+
+check out example.yaml to get an idea of the keywords. 
+
+You can also check run_pipeline.py in scripts, which parses the yaml. 
+
+
+
+
+
+

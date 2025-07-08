@@ -1,0 +1,51 @@
+steps:
+  - OPT           # Geometry Optimization
+  - NEB_TS        # Nudged Elastic Band - Transition State
+  - TS            # Transition State Optimization
+  - IRC           # Intrinsic Reaction Coordinate
+  - CONF          # Confomere search (takes either IRC end points or OPTimized structure as input)
+  - SP            # Single Point Calculation
+
+#- NEB_CI        # Nudged Elastic Band - Climbing Image
+# Molecular Properties
+charge: 0              # Total charge of the molecule/reaction
+mult: 1                # Multiplicity (e.g., singlet = 1, doublet = 2)
+solvent:               # If empty gas-phase
+
+# Computational Settings
+Nimages: 8            # Number of images for NEB calculations
+method: r2scan-3c      # Computational method for geometry optimizations
+sp_method: r2scan-3c   # Computational method for single point calculations. 
+
+# Naming
+name: DA       # Optional name for the system. If not provided, defaults based on filenames.
+
+# Slurm Parameters
+# SLURM parameters for jobs requiring lower memory resources
+slurm_params_low_mem:
+  nprocs: 24            # Number of processors
+  maxcore: 2000        # Maximum core memory in MB
+
+# SLURM parameters for jobs requiring higher memory resources
+slurm_params_high_mem:
+  nprocs: 24            # Number of processors
+  maxcore: 3500       # Maximum core memory in MB
+
+# Coordinate Files
+# List of file paths to coordinate files. Depending on the number of files, the pipeline determines the type of calculation.
+# - 1 file: Single molecule optimization
+# - 2 files: Reaction without transition state
+# - 3 files: Reaction with transition state
+coords:
+  - product.xyz     # Coordinate file for the reactant (educt) 
+  - educt.xyz   # Coordinate file for the product    
+    #  - path/to/ts.xyz        # (Optional) Coordinate file for the transition state
+
+# Additional Settings
+fast: false               # Optional boolean to toggle fast NEB calculations (e.g., for methods not starting with "xtb")
+zoom: false               # Optional boolean to toggle ZOOM-NEB-CI methods
+dif_scf: false             # Optional boolean sets settings for tough to converege wavefunctions (currently only for OPT) 
+conf_method: GOAT         ## Options are GOAT or CREST. GOAT should be prefered.  GOAT will alway use xtb2 currently 
+cosmo: false              ## Calcualtes sovation free energy with COSMO_RS. Only for the SP step  
+
+
