@@ -37,9 +37,9 @@ slurm_params_high_mem:
 # - 2 files: Reaction without transition state
 # - 3 files: Reaction with transition state
 coords:
-  - product.xyz     # Coordinate file for the reactant (educt) 
-  - educt.xyz   # Coordinate file for the product    
-    #  - path/to/ts.xyz        # (Optional) Coordinate file for the transition state
+  - educt.xyz     # Coordinate file for the reactant (educt) 
+  # - product.xyz   # Coordinate file for the product    
+  #  - path/to/ts.xyz        # (Optional) Coordinate file for the transition state
 
 # Additional Settings
 fast: false               # Optional boolean to toggle fast NEB calculations (e.g., for methods not starting with "xtb")

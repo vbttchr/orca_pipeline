@@ -461,6 +461,7 @@ class StepRunner:
                 self.slurm_params_low_mem,
                 trial=0,
                 upper_limit=MAX_TRIALS,
+                # -> dif_scf not kwarg here; should it be here?
                 dif_scf=self.target.dif_scf,
             )
         else:
