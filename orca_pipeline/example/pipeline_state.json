@@ -1,0 +1,11 @@
+{
+    "steps": [
+        "OPT",
+        "SP"
+    ],
+    "last_completed_step": "SP",
+    "charge": 0,
+    "mult": 1,
+    "solvent": null,
+    "Nimages": 0
+}

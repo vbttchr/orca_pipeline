@@ -1,5 +1,12 @@
 # Standard library imports
-from typing import List, Union, Tuple
+from __future__ import annotations
+import logging
+logger = logging.getLogger(__name__)
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
 import numpy as np
 import os
 import time
@@ -8,7 +15,9 @@ import shutil
 import concurrent.futures
 import pandas as pd
 import matplotlib.pyplot as plt
+from dataclasses import dataclass
 
+from pathlib import Path
 
 # Own imports
 from orca_pipeline.constants import MAX_TRIALS, RETRY_DELAY, FREQ_THRESHOLD
@@ -31,7 +40,7 @@ from orca_pipeline.hpc_driver import HPCDriver
 ### ---UTILS----###
 
 
-def read_xyz(filepath: str) -> Tuple[List[str], np.ndarray]:
+def read_xyz(filepath: Path) -> tuple[list[str], np.ndarray]:
     """
     Reads an XYZ file and returns a list of atoms and a 3xN NumPy array of coordinates.
     """
@@ -98,90 +107,87 @@ def rmsd(mol1, mol2) -> float:
 
 ### ---MOLECULE----###
 
-
+@dataclass
 class Molecule:
     """
     Represents a molecule.
-
-
     """
+    name: str
+    atoms: list[str]
+    coords: np.ndarray
+    charge: int
+    mult: int
+    method: str
+    sp_method: str
+    home_dir: Path # Should match of StepRunner that calls this 
+    conf_method: str | None = None
+    solvent: str | None = None
+    cosmo: bool = False
+    dif_scf: bool = False
+    scan: str | None = None
 
-    def __init__(
-        self,
-        name: str,
-        atoms: List[str],
-        coords: np.ndarray,
-        mult: int,
-        charge: int,
-        solvent: str = None,
-        cosmo: bool = False,
-        method: str = "r2scan-3c",
-        sp_method: str = "r2scanh def2-qzvpp d4",
-        conf_method="CREST",
-        dif_scf: bool = False,
-    ) -> None:
-        self.name = name
-        self.atoms = atoms
-        self.coords = coords
-        self.mult = mult
-        self.charge = charge
-        self.solvent = solvent
-        self.cosmo = cosmo
-        self.conf_method = conf_method
-        # If true use  settings which should work foo all systems, if wft is convergabel, could tak long
-        self.dif_scf = dif_scf
-        # method functional, basis set, [opt] Dispersion correction, composite methods are also supported (e.g r2scan-3c)
-        self.method = method
-        self.sp_method = sp_method
-
-        if len(atoms) != len(coords):
-            print(len(atoms), len(coords))
+    def __post_init__(self):
+        if len(self.atoms) != len(self.coords):
+            print(len(self.atoms), len(self.coords))
             raise ValueError("Number of atoms and coordinates must match.")
 
-        if mult < 1:
+        if self.mult < 1:
             raise ValueError("Multiplicity must be at least 1.")
 
     @classmethod
     def from_xyz(
         cls,
-        filepath: str,
+        filepath: Path,
         charge: int,
         mult: int,
-        solvent: str = None,
+        name: str,
+        method: str,
+        sp_method: str,
+        home_dir: Path,
+        conf_method: str | None = None,
+        solvent: str | None = None,
         cosmo: bool = False,
-        name: str = None,
-        method: str = "r2scan-3c",
-        sp_method="r2scanh def2-qzvpp d4",
-        conf_method="CREST",
         dif_scf: bool = False,
-    ) -> "Molecule":
+        scan: str | None = None,
+        # name: str | None = None, # Should this really be optional?
+        # method: str = "r2scan-3c", # Making this required, as it is required to be filled out in config yaml
+        # sp_method="r2scanh def2-qzvpp d4",
+        # conf_method="CREST",
+    ) -> Molecule:
         """
-        Creates a Molecule instance from an XYZ file.
+        Creates a Molecule instance from an XYZ file. This one has to be an abspath
         """
+        assert os.path.exists(filepath)
+        assert os.path.exists(home_dir)
+        # pathy = os.path.join(home_dir,file_path)
+        
         if name is None:
             name = os.path.basename(filepath).split(".")[0]
         atoms, coords = read_xyz(filepath)
+        
         return cls(
-            name,
-            atoms,
-            coords,
+            name=name,
+            atoms=atoms,
+            coords=coords,
             charge=charge,
             mult=mult,
-            solvent=solvent,
-            cosmo=cosmo,
             method=method,
             sp_method=sp_method,
             conf_method=conf_method,
+            solvent=solvent,
+            cosmo=cosmo,
             dif_scf=dif_scf,
+            scan=scan,
+            home_dir=home_dir
         )
 
-    def __str__(self) -> str:
-        return f"Molecule(name={self.name},atoms={self.atoms}, coordinates={self.coords}, Multiplicity={self.mult}, Charge={self.charge})"
+    # def __str__(self) -> str:
+    #     return f"Molecule(name={self.name},atoms={self.atoms}, coordinates={self.coords}, Multiplicity={self.mult}, Charge={self.charge})"
 
-    def __repr__(self) -> str:
-        return f"Molecule(name={self.name},atoms={self.atoms}, coordinates={self.coords}, Multiplicity={self.mult}, Charge={self.charge})"
+    # def __repr__(self) -> str:
+    #     return f"Molecule(name={self.name},atoms={self.atoms}, coordinates={self.coords}, Multiplicity={self.mult}, Charge={self.charge})"
 
-    def translate(self, vector: List[float]) -> None:
+    def translate(self, vector: list[float]) -> None:
         """
         Translates the molecule by the given vector.
         """
@@ -193,15 +199,17 @@ class Molecule:
         """
         self.coords = np.dot(rotation_matrix, self.coords)
 
-    def to_xyz(self, filepath: str = "") -> None:
+    def to_xyz(self, filepath: str) -> None:
         """
         Writes the molecule to an XYZ file.
         """
-        if filepath == "":
-            current_dir = os.getcwd()
-            filepath = os.path.join(current_dir, f"{self.name}.xyz")
-
-        with open(filepath, "w") as file:
+        # filedir = os.path.dirname(os.path.abspath(filepath))
+        # assert os.path.exists((filedir))
+        # if filepath == "":
+        #     current_dir = os.getcwd()
+        #     filepath = os.path.join(current_dir, f"{self.name}.xyz")
+        filepath_abs = self.home_dir / filepath
+        with open(filepath_abs, "w") as file:
             file.write(f"{len(self.atoms)}\n")
             file.write("\n")
             for atom, coord in zip(self.atoms, self.coords):
@@ -211,6 +219,7 @@ class Molecule:
         """
         Updates the coordinates of the molecule from an XYZ file.
         """
+        filepath_abs = self.home_dir / filepath
         atoms, coords = read_xyz(filepath)
         self.atoms = atoms
         self.coords = coords
@@ -227,19 +236,17 @@ class Molecule:
         self,
         driver: HPCDriver,
         slurm_params: dict,
+        cwd: Path,
         trial: int = 0,
         upper_limit: int = MAX_TRIALS,
-        tight: bool = False,
-    ) -> bool:
+        tight: bool = False) -> bool:
         """
         Optimises the geometry of the molecule.
         returns True if the optimisation was successful, False otherwise.
         If successful, the molecule's coordinates are updated.
-
-
-
         """
-
+        assert os.path.exists(cwd)
+        assert cwd==self.home_dir
         trial += 1
 
         print(f"[OPT] Trial {trial} for reactant optimisation")
@@ -257,43 +264,61 @@ class Molecule:
                 solvent_formatted = f"CPCM({self.solvent})"
 
         if trial == 1:
-            self.to_xyz(f"{self.name}.xyz")
+            xyz_path = self.home_dir / 'OPT' / f"{self.name}.xyz"
+            self.to_xyz(xyz_path)
 
         print(f"Starting optimisation of {self.name}")
+        print(f"Placed xyz of Molecule in {xyz_path}")
+        # print(f"Placed xyz of Molecule in {self.home_dir / self.name}.xyz")
 
         input_name = f"{self.name}_opt.inp"
+        input_path = self.home_dir / 'OPT' / input_name
+        
+        output_name = input_name.split(".")[0] + ".out"
+        output_path = self.home_dir / 'OPT' / output_name
+        # input_path = self.home_dir / 'OPT' / input_name
+        print(f'This is the input_path: {input_path}')
         opt_block = "tightscf opt" if tight else "opt"
         scf_block = ""
         if self.dif_scf:
             scf_block = (
                 f"%scf\n maxiter 1000\n DIISMaxeq 20\n directresetfreq 10\n end \n"
             )
-
+        # if self.constrained:
+        scan_block = ""
+        if self.scan is not None:
+            scan_block = (
+                f'%geom Scan\n {self.scan}\n end\n end'
+            )
         input = (
             f"!{self.method} {solvent_formatted} {opt_block}\n"
             f"%pal nprocs {slurm_params['nprocs']} end\n"
             f"%maxcore {slurm_params['maxcore']}\n"
-            f"{scf_block}"
+            f"{scf_block}\n"
+            f"{scan_block}\n"
             f"*xyz {self.charge} {self.mult} \n"
             f"{self.get_xyz_block()}*"
         )
 
         # Write input files
 
-        with open(input_name, "w") as f:
+        with open(input_path, "w") as f:
             f.write(input)
 
         # Submit jobs
-        out_file = f"{input_name.split('.')[0]}_slurm.out"
-        job_id = driver.submit_job(f"{input_name}", out_file)
+        slurm_out_file = f"{input_name.split('.')[0]}_slurm.out"
+        slurm_out_file_path = self.home_dir / 'OPT' / slurm_out_file
+        print(f'This is the out_path: {slurm_out_file_path}')
+        job_id = driver.submit_job(input_path, slurm_out_file_path)
+        # job_id = driver.submit_job(f"{input_name}", out_file)
         status = driver.check_job_status(job_id)
 
         # Wait for completion
-
+        logger.info(f'Grep and look for HURRAY in: {output_path}')
         if status == "COMPLETED":
             time.sleep(45)
             if "HURRAY" in driver.grep_output(
-                "HURRAY", input_name.split(".")[0] + ".out"
+                "HURRAY", output_path
             ):
                 print("[OPT] Optimisation jobs completed.")
 
@@ -320,6 +345,7 @@ class Molecule:
         return self.geometry_opt(
             driver=driver,
             slurm_params=slurm_params,
+            cwd=self.home_dir,
             trial=trial,
             upper_limit=upper_limit,
             tight=tight,
@@ -334,8 +360,8 @@ class Molecule:
         trial: int = 0,
         upper_limit: int = MAX_TRIALS,
         ts: bool = False,
-        version: int = 601,
-    ) -> bool:
+        version: int = 601
+        ) -> bool:
         """
         Runs a frequency calculation with the given method with tightscf.
         If ts=True, check for imaginary freq below FREQ_THRESHOLD.
@@ -364,22 +390,31 @@ class Molecule:
         )
 
         input_name = f"{self.name}_freq.inp"
-        with open(input_name, "w") as f:
+        input_path = self.home_dir / 'SP' / input_name
+        
+        output_name = input_name.split(".")[0] + ".out"
+        output_path = self.home_dir / 'SP' / output_name
+
+        with open(input_path, "w") as f:
             f.write(freq_input)
 
+        # Submit jobs
+        slurm_out_file = f"{input_name.split('.')[0]}_slurm.out"
+        slurm_out_file_path = self.home_dir / 'SP' / slurm_out_file
+        print(f'This is the out_path: {slurm_out_file_path}')
         job_id_freq = driver.submit_job(
-            input_name, input_name.split(".")[0] + "_slurm.out", version=version
+            input_path, slurm_out_file_path, version=version
         )
         status_freq = driver.check_job_status(job_id_freq, step="Freq")
 
         if status_freq == "COMPLETED":
             if driver.grep_output(
-                "VIBRATIONAL FREQUENCIES", input_name.split(".")[0] + ".out"
+                "VIBRATIONAL FREQUENCIES", output_path
             ):
                 print("[FREQ] Calculation completed successfully.")
                 if ts:
                     output = driver.grep_output(
-                        "**imaginary mode***", input_name.split(".")[0] + ".out"
+                        "**imaginary mode***", output_path
                     )
                     match = re.search(r"(-?\d+\.\d+)\s*cm\*\*-1", output)
                     if match:
@@ -403,10 +438,10 @@ class Molecule:
 
         driver.scancel_job(job_id_freq)
         shutil.move(
-            input_name.split(".")[0] + ".out",
+            output_path,
             f"Failed_calculations/{input_name.split('.')[0]}_failed_on_trial_{trial}.out",
         )
-        driver.shell_command("rm -rf *.gbw pmix* *densities*  slurm*")
+        # driver.shell_command("rm -rf *.gbw pmix* *densities*  slurm*")
         return self.freq_job(
             driver=driver,
             slurm_params=slurm_params,
@@ -423,7 +458,7 @@ class Molecule:
         slurm_params: dict,
         trial: int = 0,
         upper_limit: int = MAX_TRIALS,
-    ) -> bool:
+        ) -> bool:
         """
         Takes a guessed TS (e.g., from NEB) and optimizes it with selected method.
         Checks for 'HURRAY' in output. Retries if fails.
@@ -464,7 +499,10 @@ class Molecule:
         solvent_formatted = f"CPCM({self.solvent})" if self.solvent else ""
 
         input_name = f"{self.name}_TS_opt.inp"
-
+        input_path = self.home_dir / 'TS' / input_name
+        
+        output_name = input_name.split(".")[0] + ".out"
+        output_path = self.home_dir / 'TS' / output_name
         ts_input = (
             f"!{self.method} OptTS tightscf {solvent_formatted}\n"
             f'%geom\ninhess read\ninhessname "{self.name}_guess.hess"\nCalc_Hess true\n recalc_hess 15\n end\n'
@@ -474,7 +512,7 @@ class Molecule:
             f"{self.get_xyz_block()}*"
         )
 
-        with open(input_name, "w") as f:
+        with open(input_path, "w") as f:
             f.write(ts_input)
 
         job_id = driver.submit_job(
@@ -528,7 +566,7 @@ class Molecule:
         slurm_params: dict,
         trial: int = 0,
         upper_limit: int = 5,
-    ) -> bool:
+        ) -> bool:
         print(f"[QRC] Trial {trial}")
         print(
             "The module uses pyQRC to make the displacement checkout there git (https://github.com/patonlab/pyQRC) for correct citation and usage."
@@ -667,7 +705,7 @@ class Molecule:
         trial: int = 0,
         upper_limit: int = 5,
         maxiter: int = 70,
-    ) -> bool:
+        ) -> bool:
         """
         Runs an Intrinsic Reaction Coordinate (IRC) calculation from an optimized TS.
         Checks for 'HURRAY' in 'IRC.out'. Retries with more steps if needed.
@@ -767,8 +805,8 @@ class Molecule:
         slurm_params: dict,
         trial: int = 0,
         upper_limit: int = 5,
-        with_freq=True,
-    ) -> bool:
+        with_freq=False
+        ) -> bool:
         """
         Runs a single point calculation on the molecule iwth the sp_method given.
         Default is r2scanh def2-qzvpp d4.
@@ -806,8 +844,9 @@ class Molecule:
             print("[SP] Too many trials, aborting.")
             return False
 
-        if trial == 1:
-            self.to_xyz()
+        # ! do not see why it is needed?
+        # if trial == 1:
+        #     self.to_xyz()
 
         sp_input = (
             f"!{self.sp_method} {solvent_formatted} verytightscf defgrid3 \n"
@@ -817,14 +856,22 @@ class Molecule:
             f"{self.get_xyz_block()}*"
         )
         input_name = f"{self.name}_SP.inp"
-        with open(input_name, "w") as f:
+        input_path = self.home_dir / 'SP' / input_name
+        
+        output_name = input_name.split(".")[0] + ".out"
+        output_path = self.home_dir / 'SP' / output_name
+        with open(input_path, "w") as f:
             f.write(sp_input)
-        job_id = driver.submit_job(input_name, input_name.split(".")[0] + "_slurm.out")
+
+        # Submit jobs
+        slurm_out_file = f"{input_name.split('.')[0]}_slurm.out"
+        slurm_out_file_path = self.home_dir / 'SP' / slurm_out_file
+        job_id = driver.submit_job(input_path, slurm_out_file_path)
 
         status = driver.check_job_status(job_id, step="SP")
 
         if status == "COMPLETED" and "FINAL SINGLE POINT ENERGY" in driver.grep_output(
-            "FINAL SINGLE POINT ENERGY", input_name.split(".")[0] + ".out"
+            "FINAL SINGLE POINT ENERGY", output_path
         ):
             print("[SP] Single point calculation completed successfully.")
             if self.cosmo:
@@ -931,9 +978,9 @@ class Molecule:
         self,
         driver: HPCDriver,
         slurm_params: dict,
+        cwd: str,
         trial: int = 0,
-        upper_limit: int = 5,
-        cwd=None,
+        upper_limit: int = 5
     ) -> bool:
         trial += 1
         print(f"[CREST] Trial {trial} ")
@@ -959,10 +1006,13 @@ class Molecule:
 
         print("Optimization done. Starting CREST")
         print("Copying optimized structure to CREST directory")
+        assert os.path.exists(cwd)
+        print(f'Cwd exists: {os.path.exists(cwd)}')
         if cwd:
             shutil.copy(f"{self.name}.xtbopt.xyz", cwd)
         else:
-            cwd = os.getcwd()
+            raise FileNotFoundError
+            # cwd = os.getcwd()
 
         job_id = driver.submit_job(
             input_file=f"{self.name}.xtbopt.xyz",
@@ -995,7 +1045,8 @@ class Molecule:
                 print(
                     driver.grep_output("CREST terminated normally", output, flags="-a")
                 )
-                print(f"{os.getcwd()} current directory")
+                print(f"{cwd} current directory")
+                # print(f"{os.getcwd()} current directory")
                 return False
         return False
 
@@ -1483,7 +1534,7 @@ class Reaction:
         slurm_params: dict,
         trial=0,
         upper_limit: int = MAX_TRIALS,
-    ) -> Tuple[str, bool]:
+    ) -> tuple[str, bool]:
         """
         Performs a NEB-TS calculation (optionally FAST) with either XTB or r2scan-3c.
         Checks for convergence with 'HURRAY' and runs a freq job on the converged TS.

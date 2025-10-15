@@ -11,13 +11,20 @@ maybe associate the methods of step_runner to Reaction and Molecule classes.
 # TODO make parsing case insensitive
 # TODO remove state file if input does not match steps in state file. probably better in steprunner
 
+import logging
+logger = logging.getLogger(__name__)
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
 import argparse
 import os
-from typing import List
+from typing import cast
 import sys
 import time
 from collections import defaultdict
-
+from pathlib import Path
 from orca_pipeline.hpc_driver import HPCDriver
 from orca_pipeline.step_runner import StepRunner
 from orca_pipeline.constants import (
@@ -27,6 +34,7 @@ from orca_pipeline.constants import (
 )
 from orca_pipeline.chemistry import Molecule, Reaction
 import yaml
+import pprint
 
 sys.stdout = open(sys.stdout.fileno(), "w", buffering=1)
 sys.stderr = open(sys.stderr.fileno(), "w", buffering=1)
@@ -51,16 +59,16 @@ def parse_yaml(file_path: str) -> dict:
     Parses a YAML file and returns the contents as a dictionary.
     """
     if not file_path or not os.path.exists(file_path):
-        print(
+        raise FileNotFoundError(
             "No configuration file provided or file does not exist. Using default values."
         )
-        return {}
+        # return {}
     with open(file_path, "r") as file:
         try:
             return yaml.safe_load(file)
         except yaml.YAMLError as exc:
-            print(f"Error parsing YAML file: {exc}")
-            return {}
+            raise RuntimeError(f"Error parsing YAML file: {exc}")
+            # return {}
 
 
 def str2bool(v: str) -> bool:
@@ -76,19 +84,28 @@ def str2bool(v: str) -> bool:
     raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
-def parse_steps(steps_str: str) -> List[str]:
+def parse_steps(steps_str: str | list | None) -> list[str]:
     """
     Parses comma-separated steps into a list.
 
     """
-    if isinstance(steps_str, list):
+    if steps_str is None:
+        raise TypeError(f'Steps: {steps_str} are empty')
+    elif isinstance(steps_str, list):
+        assert all(isinstance(i, str) for i in steps_str)
         return steps_str
-    return steps_str.split(",")
+    a = steps_str.split(",")
+    return a
 
-
-def main() -> None:
+def main(argv=None) -> None:
     """
     Main function to run the ORCA pipeline.
+
+    Accept an arg vector s.t. script can be entered from another python script
+    to enable debugging without copying this file out of the package repo.
+
+    If this files main() is called with main(["lol.yaml"]) then this will be parsed
+    into the config attribute of args. Otherwise its none and it will go to CLI.
     """
     parser = argparse.ArgumentParser(description="Run the ORCA pipeline.")
     parser.add_argument(
@@ -99,32 +116,72 @@ def main() -> None:
         help="Path to the YAML configuration file.",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    
     if not args.config:
         print("Error: No configuration file provided.")
         parser.print_help()
         sys.exit(1)
+    
+    # For debugging, __file__ always goes to the repo -> do not use
+    logger.info(f" __file__ = {__file__}")
+    logger.info(f"cwd      = {os.getcwd()}")
+    logger.info(f"args.config      = {args.config}")
+    logger.info(f"config   = {os.path.abspath(os.path.join(os.getcwd(), args.config))}")
+
+    # Check path validity; can be absolute already or relative (cwd + config)
+    # I keep to cases to see if there are cases where os.path cannot manage rel paths
+    if os.path.exists(args.config):
+        config_path = os.path.abspath(args.config)
+    else:
+        config_path = os.path.abspath(os.path.join(os.getcwd(), args.config))
+    logger.info(f"config_path   = {config_path}")
+    assert os.path.exists(config_path)==True
 
     config = defaultdict(lambda: "")
-    config.update(parse_yaml(args.config))
-
-    charge = config.get("charge")
-    mult = config.get("mult")
-    method = config.get("method")
-    coords = config.get("coords")
+    config.update(parse_yaml(config_path))
+    config_dir = Path(os.path.dirname(config_path))
+    charge = cast(int, config["charge"])
+    # charge = config.get("charge")
+    mult = cast(int,config["mult"])
+    # mult = config.get("mult")
+    method = config.get("method","r2scan-3c") # take default from molecule
+    coords = config["coords"]
+    coords = [Path(os.path.join(config_dir,cur_coord)) for cur_coord in coords]
+    # coords = config.get("coords")
     solvent = config.get("solvent")
-    cosmo = config.get("cosmo")
+    cosmo = str2bool(config.get("cosmo","false"))
     Nimages = config.get("Nimages")
-    fast = config.get("fast")
-    zoom = config.get("zoom")
-    dif_scf = config.get("dif_scf")
-    sp_method = config.get("sp_method")
-    name = config.get("name")
+    fast = str2bool(config.get("fast","false"))
+    zoom = str2bool(config.get("zoom","false"))
+    dif_scf = str2bool(config.get("dif_scf","false"))
+    sp_method = config.get("sp_method","r2scanh def2-qzvpp d4") # take default from molecule
+    name = config["name"]
+    # name = config.get("name")
     steps = parse_steps(config.get("steps"))
-    conf_method = config.get("conf_method")
+    conf_method = config.get("conf_method") # take default from molecule
+    # conf_method = config.get("conf_method","CREST") # take default from molecule
     conf_exclude = config.get("conf_exlude", "")
-    slurm_params_low_mem = config.get("slurm_params_low_mem")
-    slurm_params_high_mem = config.get("slurm_params_high_mem")
+    slurm_params_low_mem = config["slurm_params_low_mem"]
+    assert isinstance(slurm_params_low_mem,dict)
+    # slurm_params_low_mem = config.get("slurm_params_low_mem")
+    slurm_params_high_mem = config["slurm_params_high_mem"]
+    assert isinstance(slurm_params_high_mem,dict)
+    # slurm_params_high_mem = config.get("slurm_params_high_mem")
+
+    # Latest addition to the yaml: scans / constraints
+    scan = config.get("scan")
+
+    required_vals = [
+        charge, mult, method, coords, name,
+        steps, slurm_params_low_mem, slurm_params_high_mem
+        ]
+    for val in required_vals:
+        if val is None:
+            print(
+                f"Error: Missing required key '{val}' in configuration file.")
+            sys.exit(1)
+            raise ValueError
 
     required_keys = [
         "charge",
@@ -143,8 +200,14 @@ def main() -> None:
             sys.exit(1)
 
     print("Starting Pipeline with parameters:")
-    print(config)
+    pprint.pprint(config)
 
+    # Create absolute path to all coord files (assume that in the config yaml only the file names are listed)
+    # and that the yaml is placed in same directory as the coord files
+    
+    if "CONF" in steps:
+        assert conf_method is not None
+    
     for filepath in coords:
         if not os.path.exists(filepath):
             print(f"Error: Coordinate file '{filepath}' does not exist.")
@@ -168,7 +231,10 @@ def main() -> None:
             sp_method=sp_method,
             conf_method=conf_method,
             dif_scf=dif_scf,
+            scan=scan,
+            home_dir=config_dir
         )  # Molecule
+    # ! HAVE NOT TOUCHED REACTIONS YET
     elif len(coords) == 2:
         name = "Reaction" if not name else name
 
@@ -189,7 +255,7 @@ def main() -> None:
             conf_method=conf_method,
             dif_scf=dif_scf,
         )  # Reaction
-
+    # ! HAVE NOT TOUCHED REACTIONS YET
     elif len(coords) == 3:
         name = "Reaction" if not name else name
         reaction = Reaction.from_xyz(
@@ -214,12 +280,12 @@ def main() -> None:
         return
     target = reaction if reaction else mol
 
-    hpc_driver = HPCDriver()
+    hpc_driver = HPCDriver(home_dir=config_dir)
     step_runner = StepRunner(
         hpc_driver=hpc_driver,
         target=target,
         steps=steps,
-        home_dir=os.getcwd(),
+        home_dir=config_dir,
         slurm_params_low_mem=slurm_params_low_mem,
         slurm_params_high_mem=slurm_params_high_mem,
         conf_exclude=conf_exclude,

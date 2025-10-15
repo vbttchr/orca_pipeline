@@ -1,11 +1,11 @@
 import json
 import os
-import logging
+from pathlib import Path
 import shutil
 import glob
 import sys
-from typing import List, Callable, Dict, Union
-
+from collections.abc import Callable
+from typing import TypedDict
 # Ensure correct import paths
 from orca_pipeline.chemistry import Reaction, Molecule, rmsd
 from orca_pipeline.hpc_driver import HPCDriver
@@ -20,6 +20,9 @@ from orca_pipeline.constants import (
     LOW_MEM_ELEMENTS,
 )
 
+import logging
+logger = logging.getLogger(__name__)
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -31,23 +34,38 @@ logging.basicConfig(
 # TODO remomve some checks that I can start it from any starting point
 # Add dif_scf everywhere
 
+# ! StepRunner HAS to know the absolute path to the dir where the initial structures are stored!!
+# -> modify home_dir
+
+class MoleculeParams(TypedDict):
+    # filepath="NEB/product.xyz",
+    charge: int
+    mult: int
+    # name="product_opt",
+    method: str
+    sp_method: str
+    conf_method: str | None
+    solvent: str | None
+    dif_scf: bool
+
 
 class StepRunner:
     # TODO make naming scheme of file names better.
     def __init__(
         self,
         hpc_driver: HPCDriver,
-        target: Union[Reaction, Molecule],
-        steps: List[str] = DEFAULT_STEPS,
-        slurm_params_high_mem: Dict = SLURM_PARAMS_BIG_HIGH_MEM,
-        slurm_params_low_mem: Dict = SLURM_PARAMS_BIG_LOW_MEM,
-        home_dir: str = ".",
+        target: Reaction | Molecule | None,
+        home_dir: Path,
+        steps: list[str] = DEFAULT_STEPS,
+        slurm_params_high_mem: dict = SLURM_PARAMS_BIG_HIGH_MEM,
+        slurm_params_low_mem: dict = SLURM_PARAMS_BIG_LOW_MEM,
         conf_exclude: str = "",
     ):
         self.hpc_driver = hpc_driver
         self.target = target
         self.slurm_params_high_mem = slurm_params_high_mem
         self.slurm_params_low_mem = slurm_params_low_mem
+        assert os.path.exists(home_dir)
         self.home_dir = home_dir
         self.conf_exclude = conf_exclude
         self.state_file = os.path.join(self.home_dir, "pipeline_state.json")
@@ -55,7 +73,7 @@ class StepRunner:
 
         self.steps = steps
         if not self.state:
-            logging.info("No previous state found.")
+            logger.info("No previous state found.")
             initial_state = {
                 "steps": self.steps,
                 "last_completed_step": "",
@@ -65,186 +83,229 @@ class StepRunner:
                 "Nimages": 0,
             }
             self.state = initial_state
+        
         self.completed_steps = self.state.get("last_completed_step", "")
-        if self.completed_steps:
-            index = self.steps.index(self.completed_steps)
+        if not self.completed_steps:
+            return
 
-            next_step = self.steps[index + 1]
-            self.steps = self.steps[self.steps.index(next_step) :]
-            logging.info(f"Resuming pipeline with steps: {self.steps}")
-            match next_step:
-                case "NEB_TS" | "NEB_CI":
-                    if not os.path.exists("OPT"):
-                        logging.error("Cannot resume NEB-TS without OPT step.")
-                        sys.exit(1)
-                    self.target.educt = Molecule.from_xyz(
-                        filepath="OPT/educt_opt.xyz",
-                        charge=self.target.educt.charge,
-                        mult=self.target.educt.mult,
-                        solvent=self.target.educt.solvent,
-                        method=self.target.educt.method,
-                        sp_method=self.target.educt.sp_method,
-                        name="educt_opt",
-                        dif_scf=self.target.educt.dif_scf,
-                    )
-                    self.target.product = Molecule.from_xyz(
-                        filepath="OPT/product_opt.xyz",
-                        charge=self.target.product.charge,
-                        mult=self.target.product.mult,
-                        solvent=self.target.product.solvent,
-                        method=self.target.product.method,
-                        sp_method=self.target.product.sp_method,
-                        dif_scf=self.target.product.dif_scf,
-                        name="product_opt",
-                    )
-                case "TS":
-                    if isinstance(self.target, Reaction):
-                        if self.target.transition_state is None:
-                            if not os.path.exists("NEB"):
-                                logging.error(
-                                    "Cannot resume TS without NEB step providing a guess."
-                                )
-                                sys.exit(1)
-                            self.target.educt = Molecule.from_xyz(
-                                filepath="NEB/educt.xyz",
-                                charge=self.target.educt.charge,
-                                mult=self.target.educt.mult,
-                                solvent=self.target.educt.solvent,
-                                method=self.target.educt.method,
-                                sp_method=self.target.educt.sp_method,
-                                name="educt_opt",
-                                dif_scf=self.target.transition_state.dif_scf,
+        index = self.steps.index(self.completed_steps)
+
+        next_step = self.steps[index + 1]
+        self.steps = self.steps[self.steps.index(next_step) :]
+        logger.info(f"Resuming pipeline with steps: {self.steps}")
+        wd = self.home_dir
+
+        target = self.target
+        if isinstance(target, Molecule):
+            molecule_params: MoleculeParams= {
+                'charge': target.charge,
+                'mult': target.mult,
+                'method': target.method,
+                'sp_method': target.sp_method,
+                'conf_method': target.conf_method,
+                'solvent': target.solvent,
+                'dif_scf': target.dif_scf
+            }
+        elif isinstance(target, Reaction):
+            educt_params: MoleculeParams= {
+                'charge': target.educt.charge,
+                'mult': target.educt.mult,
+                'method': target.educt.method,
+                'sp_method': target.educt.sp_method,
+                'conf_method': target.educt.conf_method,
+                'solvent': target.educt.solvent,
+                'dif_scf': target.educt.dif_scf
+            }
+            product_params: MoleculeParams= {
+                'charge': target.product.charge,
+                'mult': target.product.mult,
+                'method': target.product.method,
+                'sp_method': target.product.sp_method,
+                'conf_method': target.product.conf_method,
+                'solvent': target.product.solvent,
+                'dif_scf': target.product.dif_scf
+            }
+        else:
+            raise RuntimeError('wtf happened')
+
+
+        match next_step:
+            case "NEB_TS" | "NEB_CI":
+                assert isinstance(self.target,Reaction)
+                assert educt_params
+                assert product_params
+                if not os.path.exists("OPT"):
+                    logger.error("Cannot resume NEB-TS without OPT step.")
+                    sys.exit(1)
+                self.target.educt = Molecule.from_xyz(
+                    filepath= wd / "OPT/educt_opt.xyz",
+                    name="educt_opt",
+                    home_dir=wd,
+                    **educt_params
+                )
+                self.target.product = Molecule.from_xyz(
+                    filepath=wd / "OPT/product_opt.xyz",
+                    name="product_opt",
+                    home_dir=wd,
+                    **product_params
+                )
+            case "TS":
+                if isinstance(self.target, Reaction):
+                    assert educt_params
+                    assert product_params
+                    if self.target.transition_state is None:
+                        if not os.path.exists("NEB"):
+                            logger.error(
+                                "Cannot resume TS without NEB step providing a guess."
                             )
-                            self.target.product = Molecule.from_xyz(
-                                filepath="NEB/product.xyz",
-                                charge=self.target.product.charge,
-                                mult=self.target.product.mult,
-                                solvent=self.target.product.solvent,
-                                method=self.target.product.method,
-                                sp_method=self.target.product.sp_method,
-                                name="product_opt",
-                                dif_scf=self.target.product.dif_scf,
+                            sys.exit(1)
+                        self.target.educt = Molecule.from_xyz(
+                            filepath= wd / "NEB/educt.xyz",
+                            name="educt_opt",
+                            home_dir=wd,
+                            **educt_params
+                        )
+                        self.target.product = Molecule.from_xyz(
+                            filepath= wd / "NEB/product.xyz",
+                            name="product_opt",
+                            home_dir=wd,
+                            **product_params
+                        )
+                        if os.path.exists(wd / "TS") and os.path.exists(
+                            wd / "TS/ts_guess.xyz"
+                        ):
+                            educt_params['dif_scf'] = self.target.transition_state.dif_scf
+                            self.target.transition_state = Molecule.from_xyz(
+                                filepath= wd / "TS/ts_guess.xyz",
+                                name="ts_guess",
+                                home_dir=wd,
+                                **educt_params
                             )
-                            if os.path.exists("TS") and os.path.exists(
-                                "TS/ts_guess.xyz"
-                            ):
-                                self.target.transition_state = Molecule.from_xyz(
-                                    filepath="TS/ts_guess.xyz",
-                                    charge=self.target.educt.charge,
-                                    mult=self.target.educt.mult,
-                                    solvent=self.target.educt.solvent,
-                                    method=self.target.educt.method,
-                                    sp_method=self.target.educt.sp_method,
-                                    dif_scf=self.target.transition_state.dif_scf,
-                                    name="ts_guess",
-                                )
+                        else:
+                            file_path = ""
+                            pattern = str(wd / "NEB/*TS_converged.xyz")
+                            matches = glob.glob(pattern)
+                            if matches:
+                                file_path = matches[0]
                             else:
-                                file_path = ""
-
-                                pattern = "NEB/*TS_converged.xyz"
+                                pattern = str(wd / "NEB/*CI_converged.xyz")
                                 matches = glob.glob(pattern)
                                 if matches:
                                     file_path = matches[0]
-                                else:
-                                    pattern = "NEB/*CI_converged.xyz"
-                                    matches = glob.glob(pattern)
-                                    if matches:
-                                        file_path = matches[0]
-                                print(f"Using {file_path} as TS guess")
+                            print(f"Using {file_path} as TS guess")
+                            educt_params['dif_scf'] = self.target.transition_state.dif_scf
+                            self.target.transition_state = Molecule.from_xyz(
+                                filepath=Path(file_path),
+                                name="ts_guess",
+                                home_dir=wd,
+                                **educt_params
+                            )
+            case "IRC":
+                if not os.path.exists(wd / "TS"):
+                    logger.error("Cannot resume IRC without TS step.")
+                    sys.exit(1)
+                assert isinstance(self.target, Reaction)
+                assert educt_params
+                assert product_params
+                self.target.educt = Molecule.from_xyz(
+                    filepath=wd / "NEB/educt.xyz",
+                    name="educt",
+                    home_dir=wd,
+                    **educt_params
+                )
+                self.target.product = Molecule.from_xyz(
+                    filepath= wd / "NEB/product.xyz",
+                    name="product",
+                    home_dir=wd,
+                    **product_params
+                )
 
-                                self.target.transition_state = Molecule.from_xyz(
-                                    filepath=file_path,
-                                    charge=self.target.educt.charge,
-                                    mult=self.target.educt.mult,
-                                    solvent=self.target.educt.solvent,
-                                    method=self.target.educt.method,
-                                    sp_method=self.target.educt.sp_method,
-                                    name="ts_guess",
-                                    dif_scf=self.target.transition_state.dif_scf,
-                                )
-                case "IRC":
+                pattern = str(wd / "TS/*_TS_opt.xyz")
+                matches = glob.glob(pattern)
+                if matches:
+                    self.target.transition_state = Molecule.from_xyz(
+                        filepath=Path(matches[0]),
+                        name="ts",
+                        home_dir=wd,
+                        **educt_params
+                    )
+                else:
+                    logger.error("Cannot resume IRC step could not load TS_opt")
+                    sys.exit(1)
+            case "SP":
+                if isinstance(self.target, Reaction):
+                    assert educt_params
+                    assert product_params
                     if not os.path.exists("TS"):
-                        logging.error("Cannot resume IRC without TS step.")
+                        logger.error("Cannot resume SP without TS step.")
                         sys.exit(1)
-                    self.target.educt = Molecule.from_xyz(
-                        filepath="NEB/educt.xyz",
-                        charge=self.target.educt.charge,
-                        mult=self.target.educt.mult,
-                        solvent=self.target.educt.solvent,
-                        method=self.target.educt.method,
-                        sp_method=self.target.educt.sp_method,
-                        name="educt",
-                    )
-                    self.target.product = Molecule.from_xyz(
-                        filepath="NEB/product.xyz",
-                        charge=self.target.product.charge,
-                        mult=self.target.product.mult,
-                        solvent=self.target.product.solvent,
-                        method=self.target.product.method,
-                        sp_method=self.target.product.sp_method,
-                        name="product",
-                    )
-
-                    pattern = "TS/*_TS_opt.xyz"
-                    matches = glob.glob(pattern)
-                    if matches:
-                        self.target.transition_state = Molecule.from_xyz(
-                            filepath=matches[0],
-                            charge=self.target.educt.charge,
-                            mult=self.target.educt.mult,
-                            solvent=self.target.educt.solvent,
-                            method=self.target.educt.method,
-                            sp_method=self.target.educt.sp_method,
-                            name="ts",
+                    if os.path.exists("OPT") and not os.path.exists(
+                        "CONF/best_confs_opt"
+                    ):
+                        self.target.educt = Molecule.from_xyz(
+                            filepath=wd / "OPT/educt_opt.xyz",
+                            name="educt",
+                            home_dir=wd,
+                            **educt_params
                         )
-                    else:
-                        logging.erro("Cannot resume IRC step could not load TS_opt")
-                        sys.exit(1)
-                case "SP":
-                    if isinstance(self.target, Reaction):
-                        if not os.path.exists("TS"):
-                            logging.error("Cannot resume SP without TS step.")
-                            sys.exit(1)
-                        if os.path.exists("OPT") and not os.path.exists(
-                            "CONF/best_confs_opt"
-                        ):
-                            self.target.educt = Molecule.from_xyz(
-                                filepath="OPT/educt_opt.xyz",
-                                charge=self.target.educt.charge,
-                                mult=self.target.educt.mult,
-                                solvent=self.target.educt.solvent,
-                                method=self.target.educt.method,
-                                sp_method=self.target.educt.sp_method,
-                                name="educt",
-                            )
-                            self.target.product = Molecule.from_xyz(
-                                filepath="OPT/product_opt.xyz",
-                                charge=self.target.product.charge,
-                                mult=self.target.product.mult,
-                                solvent=self.target.product.solvent,
-                                method=self.target.product.method,
-                                sp_method=self.target.product.sp_method,
-                                name="product",
-                            )
-                        elif os.path.exists("CONF/best_confs_opt"):
-                            self.target.educt = Molecule.from_xyz(
-                                filepath="CONF/best_confs_opt/educt_opt.xyz",
-                                charge=self.target.educt.charge,
-                                mult=self.target.educt.mult,
-                                solvent=self.target.educt.solvent,
-                                method=self.target.educt.method,
-                                sp_method=self.target.educt.sp_method,
-                                name="educt",
-                            )
-                            self.target.product = Molecule.from_xyz(
-                                filepath="CONF/best_confs_opt/educt_opt.xyz",
-                                charge=self.target.product.charge,
-                                mult=self.target.product.mult,
-                                solvent=self.target.product.solvent,
-                                method=self.target.product.method,
-                                sp_method=self.target.product.sp_method,
-                                name="product",
-                            )
+                        self.target.product = Molecule.from_xyz(
+                            filepath= wd / "OPT/product_opt.xyz",
+                            name="product",
+                            home_dir=wd,
+                            **product_params
+                        )
+                    elif os.path.exists("CONF/best_confs_opt"):
+                        self.target.educt = Molecule.from_xyz(
+                            filepath= wd / "CONF/best_confs_opt/educt_opt.xyz",
+                            name="educt",
+                            home_dir=wd,
+                            **educt_params
+                        )
+                        self.target.product = Molecule.from_xyz(
+                            filepath= wd / "CONF/best_confs_opt/educt_opt.xyz",
+                            name="product",
+                            home_dir=wd,
+                            **product_params
+                        )
+                    self.target.transition_state = Molecule.from_xyz(
+                        filepath= wd / "TS/ts_guess_TS_opt.xyz",
+                        name="ts",
+                        home_dir=wd,
+                        **educt_params
+                    )
+                elif isinstance(self.target, Molecule):
+                    if os.path.exists(wd / "OPT"):
+                        assert molecule_params
+                        # TODO add function that gets all filepaths of format OPT/{self.target.name}_opt_\d.xyz!
+                        # TODO or modify package to create _\d{0-4} amount of steprunners?
+                        # TODO or run sequentially? lets see.
+                        self.target = Molecule.from_xyz(
+                            filepath=wd / f"OPT/{self.target.name}_opt.xyz",
+                            # charge=self.target.charge,
+                            # mult=self.target.mult,
+                            # solvent=self.target.solvent,
+                            # method=self.target.method,
+                            # sp_method=self.target.sp_method,
+                            home_dir=wd,
+                            name=f"{self.target.name}",
+                            **molecule_params
+                        )
+                    if os.path.exists("CONF"):
+                        assert molecule_params
+                        self.target = Molecule.from_xyz(
+                            filepath=f"CONF/{self.target.name}_opt.xyz",
+                            # charge=self.target.charge,
+                            # mult=self.target.mult,
+                            # solvent=self.target.solvent,
+                            # method=self.target.method,
+                            # sp_method=self.target.sp_method,
+                            name=f"{self.target.name}",
+                            # home_dir=self.home_dir,
+                            **molecule_params
+                        )
+            case "CONF":
+                if isinstance(self.target, Reaction):
+                    if os.path.exists("TS"):
                         self.target.transition_state = Molecule.from_xyz(
                             filepath="TS/ts_guess_TS_opt.xyz",
                             charge=self.target.educt.charge,
@@ -254,116 +315,84 @@ class StepRunner:
                             sp_method=self.target.educt.sp_method,
                             name="ts",
                         )
-                    elif isinstance(self.target, Molecule):
-                        if os.path.exists("OPT"):
-                            self.target = Molecule.from_xyz(
-                                filepath=f"OPT/{self.target.name}_opt.xyz",
-                                charge=self.target.charge,
-                                mult=self.target.mult,
-                                solvent=self.target.solvent,
-                                method=self.target.method,
-                                sp_method=self.target.sp_method,
-                                name=f"{self.target.name}",
-                            )
-                        if os.path.exists("CONF"):
-                            self.target = Molecule.from_xyz(
-                                filepath=f"CONF/{self.target.name}_opt.xyz",
-                                charge=self.target.charge,
-                                mult=self.target.mult,
-                                solvent=self.target.solvent,
-                                method=self.target.method,
-                                sp_method=self.target.sp_method,
-                                name=f"{self.target.name}",
-                            )
-                case "CONF":
-                    if isinstance(self.target, Reaction):
-                        if os.path.exists("TS"):
-                            self.target.transition_state = Molecule.from_xyz(
-                                filepath="TS/ts_guess_TS_opt.xyz",
-                                charge=self.target.educt.charge,
-                                mult=self.target.educt.mult,
-                                solvent=self.target.educt.solvent,
-                                method=self.target.educt.method,
-                                sp_method=self.target.educt.sp_method,
-                                name="ts",
-                            )
-                        if os.path.exists("OPT"):
-                            self.target.educt = Molecule.from_xyz(
-                                filepath="OPT/educt_opt.xyz",
-                                charge=self.target.educt.charge,
-                                mult=self.target.educt.mult,
-                                solvent=self.target.educt.solvent,
-                                method=self.target.educt.method,
-                                sp_method=self.target.educt.sp_method,
-                                name="educt_opt",
-                            )
-                            self.target.product = Molecule.from_xyz(
-                                filepath="OPT/product_opt.xyz",
-                                charge=self.target.product.charge,
-                                mult=self.target.product.mult,
-                                solvent=self.target.product.solvent,
-                                method=self.target.product.method,
-                                sp_method=self.target.product.sp_method,
-                                name="product_opt",
-                            )
-                case "PLOT":
-                    if isinstance(self.target, Molecule):
-                        print("Not supported for Molecule objects")
-                        sys.exit(1)
+                    if os.path.exists("OPT"):
+                        self.target.educt = Molecule.from_xyz(
+                            filepath="OPT/educt_opt.xyz",
+                            charge=self.target.educt.charge,
+                            mult=self.target.educt.mult,
+                            solvent=self.target.educt.solvent,
+                            method=self.target.educt.method,
+                            sp_method=self.target.educt.sp_method,
+                            name="educt_opt",
+                        )
+                        self.target.product = Molecule.from_xyz(
+                            filepath="OPT/product_opt.xyz",
+                            charge=self.target.product.charge,
+                            mult=self.target.product.mult,
+                            solvent=self.target.product.solvent,
+                            method=self.target.product.method,
+                            sp_method=self.target.product.sp_method,
+                            name="product_opt",
+                        )
+            case "PLOT":
+                if isinstance(self.target, Molecule):
+                    print("Not supported for Molecule objects")
+                    sys.exit(1)
 
-                    if not os.path.exists("SP"):
-                        logging.error("Cannot resume PLOT without SP step.")
-                        sys.exit(1)
-                    method = (
-                        self.target.educt.method
-                        if not "xtb" in self.target.educt.method.lower()
-                        else "r2scan-3c"
-                    )
-                    self.target.educt = Molecule.from_xyz(
-                        filepath="SP/educt.xyz",
-                        charge=self.target.educt.charge,
-                        mult=self.target.educt.mult,
-                        method=self.target.educt.method,
-                        sp_method=self.target.educt.sp_method,
-                        solvent=self.target.educt.solvent,
-                        name="educt",
-                    )
-                    self.target.product = Molecule.from_xyz(
-                        filepath="SP/product.xyz",
-                        charge=self.target.product.charge,
-                        mult=self.target.product.mult,
-                        method=self.target.product.method,
-                        sp_method=self.target.product.sp_method,
-                        solvent=self.target.product.solvent,
-                        name="product",
-                    )
-                    self.target.transition_state = Molecule.from_xyz(
-                        filepath="SP/ts.xyz",
-                        charge=self.target.educt.charge,
-                        mult=self.target.educt.mult,
-                        method=self.target.educt.method,
-                        sp_method=self.target.educt.sp_method,
-                        solvent=self.target.educt.solvent,
-                        name="ts",
-                    )
+                if not os.path.exists("SP"):
+                    logger.error("Cannot resume PLOT without SP step.")
+                    sys.exit(1)
+                method = (
+                    self.target.educt.method
+                    if not "xtb" in self.target.educt.method.lower()
+                    else "r2scan-3c"
+                )
+                self.target.educt = Molecule.from_xyz(
+                    filepath="SP/educt.xyz",
+                    charge=self.target.educt.charge,
+                    mult=self.target.educt.mult,
+                    method=self.target.educt.method,
+                    sp_method=self.target.educt.sp_method,
+                    solvent=self.target.educt.solvent,
+                    name="educt",
+                )
+                self.target.product = Molecule.from_xyz(
+                    filepath="SP/product.xyz",
+                    charge=self.target.product.charge,
+                    mult=self.target.product.mult,
+                    method=self.target.product.method,
+                    sp_method=self.target.product.sp_method,
+                    solvent=self.target.product.solvent,
+                    name="product",
+                )
+                self.target.transition_state = Molecule.from_xyz(
+                    filepath="SP/ts.xyz",
+                    charge=self.target.educt.charge,
+                    mult=self.target.educt.mult,
+                    method=self.target.educt.method,
+                    sp_method=self.target.educt.sp_method,
+                    solvent=self.target.educt.solvent,
+                    name="ts",
+                )
 
-                    #
-
-    def make_folder(self, dir_name: str) -> None:
+    def make_folder(self, dir_path: Path) -> None:
         """
         Creates a new folder, removing existing one if present.
         """
-        path = os.path.join(os.getcwd(), dir_name)
-        logging.info(f"Creating folder at path: {path}")
-        if os.path.exists(path):
-            if os.path.isdir(path):
-                logging.info(f"Removing existing folder {path}")
-                shutil.rmtree(path)
+        logger.info(f"Attempt creating folder at: {dir_path}")
+        try:
+            assert os.path.exists(os.path.dirname(dir_path))
+        except AssertionError as e:
+            logger.error(f'Ran into assertion error: {e}')
+        if os.path.exists(dir_path):
+            if os.path.isdir(dir_path):
+                logger.info(f"Removing existing folder \t\t{dir_path}")
+                shutil.rmtree(dir_path)
             else:
-                logging.info(f"Removing existing file {path}")
-                os.remove(path)
-        os.makedirs(path)
-        logging.info(f"Created folder {path}")
+                logger.info(f"Removing existing file \t{dir_path}")
+                os.remove(dir_path)
+        os.makedirs(dir_path)
+        logger.info(f"Created folder \t\t{dir_path}")
 
     def load_state(self) -> dict:
         if os.path.exists(self.state_file):
@@ -408,7 +437,7 @@ class StepRunner:
 
         step_function: Callable[[], bool] = steps_mapping.get(step.upper())
         if not step_function:
-            logging.error(f"Step '{step}' is not recognized.")
+            logger.error(f"Step '{step}' is not recognized.")
             return False
 
         return step_function()
@@ -419,7 +448,7 @@ class StepRunner:
             self.update_state(step)
             self.save_state()
         else:
-            logging.error(f"Step '{step}' failed.")
+            logger.error(f"Step '{step}' failed.")
         return success
 
     def run_pipeline(self) -> bool:
@@ -431,7 +460,7 @@ class StepRunner:
             success = self.execute_step(step)
             os.chdir(self.home_dir)
             if not success:
-                logging.error(f"Pipeline halted due to failure in step '{step}'.")
+                logger.error(f"Pipeline halted due to failure in step '{step}'.")
                 with open("FAILED.out", "w") as f:
                     f.write(f"Failed at step: {step}\n")
                 self.save_state()
@@ -442,10 +471,10 @@ class StepRunner:
 
     # Define all pipeline step methods
     def geometry_optimisation(self) -> bool:
-        logging.info("Starting geometry optimization.")
+        logger.info("Starting geometry optimization.")
         if isinstance(self.target, Reaction):
-            self.make_folder("OPT")
-            os.chdir("OPT")
+            self.make_folder(self.home_dir / "OPT")
+            os.chdir(self.home_dir / "OPT")
 
             return self.target.optimise_reactants(
                 self.hpc_driver,
@@ -454,23 +483,24 @@ class StepRunner:
                 upper_limit=MAX_TRIALS,
             )
         elif isinstance(self.target, Molecule):
-            self.make_folder("OPT")
-            os.chdir("OPT")
+            self.make_folder(self.home_dir / "OPT")
+            os.chdir(self.home_dir / "OPT")
             return self.target.geometry_opt(
                 self.hpc_driver,
                 self.slurm_params_low_mem,
+                cwd=self.home_dir,
                 trial=0,
                 upper_limit=MAX_TRIALS,
-                dif_scf=self.target.dif_scf,
+                # dif_scf=self.target.dif_scf,
             )
         else:
-            logging.error("Unsupported target type for geometry optimization.")
+            logger.error("Unsupported target type for geometry optimization.")
             return False
 
     def neb_ci(self) -> bool:
-        logging.info("Starting NEB-CI calculation.")
+        logger.info("Starting NEB-CI calculation.")
         if isinstance(self.target, Reaction):
-            self.make_folder("NEB")
+            self.make_folder(self.home_dir / "NEB")
             os.chdir("NEB")
             return self.target.neb_ci(
                 self.hpc_driver,
@@ -479,13 +509,13 @@ class StepRunner:
                 upper_limit=MAX_TRIALS,
             )
         else:
-            logging.error("NEB-CI step is only applicable to Reaction objects.")
+            logger.error("NEB-CI step is only applicable to Reaction objects.")
             return False
 
     def neb_ts(self) -> bool:
-        logging.info("Starting NEB-TS calculation.")
+        logger.info("Starting NEB-TS calculation.")
         if isinstance(self.target, Reaction):
-            self.make_folder("NEB")
+            self.make_folder(self.home_dir / "NEB")
             os.chdir("NEB")
 
             message, success = self.target.neb_ts(
@@ -500,13 +530,13 @@ class StepRunner:
             else:
                 return success
         else:
-            logging.error("NEB-TS step is only applicable to Reaction objects.")
+            logger.error("NEB-TS step is only applicable to Reaction objects.")
             return False
 
     def ts_opt(self) -> bool:
-        logging.info("Starting TS optimization.")
+        logger.info("Starting TS optimization.")
         if isinstance(self.target, Reaction):
-            self.make_folder("TS")
+            self.make_folder(self.home_dir / "TS")
             if not "xtb" in self.target.educt.method.lower():
                 if os.path.exists(f"NEB/{self.target.transition_state.name}_freq.hess"):
                     self.hpc_driver.shell_command(
@@ -553,13 +583,13 @@ class StepRunner:
                 upper_limit=MAX_TRIALS,
             )
         else:
-            logging.error("TS optimization is only applicable to Reaction objects.")
+            logger.error("TS optimization is only applicable to Reaction objects.")
             return False
 
     def irc_job(self) -> bool:
-        logging.info("Starting IRC job.")
+        logger.info("Starting IRC job.")
         if isinstance(self.target, Reaction):
-            self.make_folder("IRC")
+            self.make_folder(self.home_dir / "IRC")
             print()
             self.hpc_driver.shell_command(
                 f"cp TS/{self.target.transition_state.name}_freq.hess IRC/"
@@ -579,37 +609,39 @@ class StepRunner:
                 upper_limit=MAX_TRIALS,
             )
         else:
-            logging.error("Unsupported target type for IRC job.")
+            logger.error("Unsupported target type for IRC job.")
             return False
 
     def sp_calc(self) -> bool:
-        logging.info("Starting single point calculation.")
+        logger.info("Starting single point calculation.")
         if isinstance(self.target, Reaction):
-            self.make_folder("SP")
+            self.make_folder(self.home_dir / "SP")
             os.chdir("SP")
             return self.target.sp_calc(self.hpc_driver, self.slurm_params_low_mem)
         elif isinstance(self.target, Molecule):
-            self.make_folder("SP")
+            self.make_folder(self.home_dir / "SP")
             os.chdir("SP")
             return self.target.sp_calc(self.hpc_driver, self.slurm_params_low_mem)
         else:
-            logging.error("Unsupported target type for single point calculation.")
+            logger.error("Unsupported target type for single point calculation.")
             return False
 
     def conf_calc(self) -> bool:
-        logging.info("Starting conformer calculation.")
+        logger.info("Starting conformer calculation.")
         if isinstance(self.target, Molecule):
             if "xtb" in self.target.method.lower():
                 print(
                     "Changing method to r2scan-3c to optimize best confomer, crest_best is already xtb2 optimized"
                 )
                 self.target.method = "r2scan-3c"
-            self.make_folder("CONF")
+            self.make_folder(self.home_dir / "CONF")
             os.chdir("CONF")
             success = False
             if self.target.conf_method == "CREST":
                 success = self.target.get_lowest_confomer_crest(
-                    self.hpc_driver, self.slurm_params_low_mem
+                    driver=self.hpc_driver,
+                    slurm_params=self.slurm_params_low_mem,
+                    cwd=self.home_dir
                 )
             else:
                 success = self.target.get_lowest_confomer_goat(
@@ -630,7 +662,7 @@ class StepRunner:
                 return False
 
         elif isinstance(self.target, Reaction):
-            self.make_folder("CONF")
+            self.make_folder(self.home_dir / "CONF")
             if "xtb" in self.target.method.lower():
                 print(
                     "Changing method to r2scan-3c to optimize best confomer, crest_best is already xtb2 optimized"
@@ -699,8 +731,8 @@ class StepRunner:
 
             success = False
             if self.target.conf_method == "CREST":
-                self.make_folder("product_confs")
-                self.make_folder("educt_confs")
+                self.make_folder(self.home_dir / "product_confs")
+                self.make_folder(self.home_dir / "educt_confs")
                 success = self.target.get_lowest_confomers(
                     self.hpc_driver,
                     self.slurm_params_low_mem,
@@ -716,7 +748,7 @@ class StepRunner:
                 )
             if success:
                 print("Conformer calculation successful. Optimizing best confomers")
-                self.make_folder("best_confs_opt")
+                self.make_folder(self.home_dir / "best_confs_opt")
                 os.chdir("best_confs_opt")
                 return self.target.optimise_reactants(
                     self.hpc_driver,
@@ -747,7 +779,7 @@ class StepRunner:
             dif_scf = self.target.educt.dif_scf
         else:
             dif_scf = self.target.dif_scf
-        self.make_folder("FOD")
+        self.make_folder(self.home_dir / "FOD")
         os.chdir("FOD")
         return self.target.fod_calc(
             driver=self.hpc_driver,

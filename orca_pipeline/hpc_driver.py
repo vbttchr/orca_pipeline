@@ -1,31 +1,42 @@
 #!/usr/bin/env python3
+
 """
 hpc_driver.py
 
 Contains the HPCDriver class, encapsulating SLURM-related operations like
 submitting jobs, checking job status, cancelling jobs, etc.
 """
-
+import logging
+logger = logging.getLogger(__name__)
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 import sys
 import subprocess
 import time
 import os
-from typing import List, Optional
+from pathlib import Path
 from orca_pipeline.constants import SSUBO, CHECK_STATES
-
 
 class HPCDriver:
     """
     Encapsulates SLURM-related operations like submitting jobs,
     checking job status, cancelling jobs, etc.
+
+    Does all these operations from the home_dir absolute path;
+    methods have to access this attribute that is fixed from instantiation.
     """
 
     def __init__(
         self,
-        submit_cmd: List[str] = None,
-        check_states: List[str] = None,
+        home_dir: Path,
+        submit_cmd: list[str] | None = None,
+        check_states: list[str] | None = None,
         retry_delay: int = 60,
     ) -> None:
+        assert os.path.exists(home_dir)
+        self.home_dir = home_dir
         self.submit_cmd = submit_cmd or SSUBO
         self.check_states = check_states or CHECK_STATES
         self.retry_delay = retry_delay
@@ -38,15 +49,15 @@ class HPCDriver:
         check: bool = True,
         exit_on_error: bool = True,
         timeout: int = 60,
-        cwd=None,
-    ) -> Optional[subprocess.CompletedProcess]:
+        # cwd=None,
+    ) -> subprocess.CompletedProcess | None:
         """
         Wrapper for running a subprocess command.
         Returns CompletedProcess or None if it fails silently (exit_on_error=False).
         """
-        if not cwd:
-            cwd = os.getcwd()
-
+        # if not cwd:
+        #     cwd = os.getcwd()
+        home_dir = self.home_dir
         try:
             result = subprocess.run(
                 command,
@@ -55,7 +66,7 @@ class HPCDriver:
                 text=True,
                 check=check,
                 timeout=timeout,
-                cwd=cwd,
+                cwd=home_dir,
             )
             return result
         except subprocess.TimeoutExpired:
@@ -70,8 +81,9 @@ class HPCDriver:
 
     def submit_job(
         self,
-        input_file: str,
-        output_file: str,
+        input_file: Path,
+        output_file: Path,
+        # cwd: str,
         walltime: str = "24",
         mail: bool = False,
         job_type: str = "orca",
@@ -79,22 +91,27 @@ class HPCDriver:
         charge: int = 0,
         mult: int = 0,
         solvent: str = "",
-        cwd=None,
     ) -> str:
         """
-         Submits a job to SLURM using the configured submit command.
-         Parses and returns the job ID from stdout.
+            Submits a job to SLURM using the configured submit command.
+            Parses and returns the job ID from stdout.
 
         version = 601
         only freq can take other version as we currently need it for the qrc option. In the furture, this will either be more flexible or removed. Most recent orca version is preferable
 
         charge and mult are only used for crest jobs.
 
-         TODO: either change ssub scripts to always take same options or make this more flexibel
+            TODO: either change ssub scripts to always take same options or make this more flexibel
+        
+        These classes know their home_dir:
+        StepRunner, Molecule, HPCDriver
         """
-
-        if not cwd:
-            cwd = os.getcwd()
+        # Ensure that HPCDrivers home_dir is the same as the one used for the in/outfiles
+        logger.info(f'self.home_dir: {self.home_dir} input_file.parents: {input_file.parents}')
+        assert self.home_dir in input_file.parents
+        assert self.home_dir in output_file.parents
+        # if not cwd:
+        #     cwd = os.getcwd()
         command = []
         match job_type.lower():
             case "orca":
@@ -151,8 +168,8 @@ class HPCDriver:
                     f"--time={walltime}",
                     f"--wrap={orca_path} {input_file} > {orca_out}",
                 ]
-                print(f"Submitting FOD job with command: {command}")
-        result = self.run_subprocess(command, cwd=cwd, timeout=1200)
+        print(f"Submitting FOD job with command: {command}")
+        result = self.run_subprocess(command, timeout=1200)
         if not result:
             print(f"Failed to submit job with input '{input_file}'")
             sys.exit(1)
@@ -216,8 +233,10 @@ class HPCDriver:
         self.run_subprocess(["scancel", job_id], exit_on_error=False, timeout=1200)
 
     def shell_command(
-        self, command: str, cwd=None, timeout: int = 60
-    ) -> Optional[subprocess.CompletedProcess]:
+        self, command: str,
+        # cwd=None,
+        timeout: int = 60
+    ) -> subprocess.CompletedProcess | None:
         """
         Wrapper to run an arbitrary shell command for convenience (e.g., grep, cp, rm).
         """
@@ -226,7 +245,7 @@ class HPCDriver:
             shell=True,
             check=False,
             exit_on_error=False,
-            cwd=cwd,
+            # cwd=cwd,
             timeout=timeout,
         )
 

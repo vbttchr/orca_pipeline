@@ -1,10 +1,13 @@
 steps:
   - OPT           # Geometry Optimization
-  - NEB_TS        # Nudged Elastic Band - Transition State
-  - TS            # Transition State Optimization
-  - IRC           # Intrinsic Reaction Coordinate
-  - CONF          # Confomere search (takes either IRC end points or OPTimized structure as input)
+  # - NEB_TS        # Nudged Elastic Band - Transition State
+  # - TS            # Transition State Optimization
+  # - IRC           # Intrinsic Reaction Coordinate
+  # - CONF          # Confomere search (takes either IRC end points or OPTimized structure as input)
   - SP            # Single Point Calculation
+
+# Constrained & relaxed surface scan block info for opt
+# scan: B 0 1 = 1.35, 1.10, 3 # 0th-1st atoms bond dist to scan
 
 #- NEB_CI        # Nudged Elastic Band - Climbing Image
 # Molecular Properties
@@ -14,11 +17,11 @@ solvent:               # If empty gas-phase
 
 # Computational Settings
 Nimages: 8            # Number of images for NEB calculations
-method: r2scan-3c      # Computational method for geometry optimizations
+method: r2scan-3c      # Computational method for geometry optimizations, was  B3LYP def2-SVP
 sp_method: r2scan-3c   # Computational method for single point calculations. 
 
 # Naming
-name: DA       # Optional name for the system. If not provided, defaults based on filenames.
+name: testyMctesttest       # Optional name for the system. If not provided, defaults based on filenames.
 
 # Slurm Parameters
 # SLURM parameters for jobs requiring lower memory resources
@@ -37,8 +40,8 @@ slurm_params_high_mem:
 # - 2 files: Reaction without transition state
 # - 3 files: Reaction with transition state
 coords:
-  - product.xyz     # Coordinate file for the reactant (educt) 
-  - educt.xyz   # Coordinate file for the product    
+  - educt.xyz     # Coordinate file for the reactant (educt) 
+    # - product.xyz   # Coordinate file for the product    
     #  - path/to/ts.xyz        # (Optional) Coordinate file for the transition state
 
 # Additional Settings
